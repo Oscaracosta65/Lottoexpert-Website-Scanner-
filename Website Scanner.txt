@@ -2163,6 +2163,109 @@ $token   = Session::getFormToken();
     .le-audit-title   { font-size: 24px; }
     .le-audit-button  { width: 100%; }
 }
+
+/* ── Health Score Cards ───────────────────────────────────────────────────── */
+.le-health-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 10px;
+}
+.le-health-card {
+    border-radius: 12px;
+    padding: 14px 10px;
+    text-align: center;
+    border: 1px solid #e5eaf2;
+}
+.le-health-score {
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+.le-health-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #667085;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+}
+.le-score-green  { background: #dcfae6; color: #067647; border-color: #86efac; }
+.le-score-yellow { background: #fff7e6; color: #946200; border-color: #ffd591; }
+.le-score-red    { background: #fee4e2; color: #b42318; border-color: #fecdca; }
+
+@media (max-width: 900px) {
+    .le-health-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+    .le-health-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ── Priority Table ──────────────────────────────────────────────────────── */
+.le-priority-score {
+    display: inline-block;
+    min-width: 36px;
+    text-align: center;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-weight: 800;
+    font-size: 13px;
+}
+.le-sev-critical { background: #fee4e2; color: #b42318; }
+.le-sev-high     { background: #fff3cd; color: #7a4b00; }
+.le-sev-medium   { background: #e0f2fe; color: #0c4a6e; }
+.le-sev-low      { background: #f8fafc; color: #344054; }
+
+/* ── Filter Bar ──────────────────────────────────────────────────────────── */
+.le-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: #f8fafc;
+    border: 1px solid #e5eaf2;
+    border-radius: 10px;
+}
+.le-filter-bar input[type="text"],
+.le-filter-bar select {
+    padding: 7px 10px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    font-size: 13px;
+    background: #fff;
+    min-width: 140px;
+}
+.le-filter-bar label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #344054;
+}
+
+/* ── Export Buttons Row ──────────────────────────────────────────────────── */
+.le-export-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+.le-audit-button.export {
+    background: #0d9488;
+    color: #fff;
+    font-size: 13px;
+    padding: 9px 14px;
+    min-height: 38px;
+}
+.le-audit-button.export:hover,
+.le-audit-button.export:focus {
+    background: #0f766e;
+    color: #fff;
+}
+
+/* ── Indexability pill ───────────────────────────────────────────────────── */
+.le-audit-pill.indexable     { background: #dcfae6; color: #067647; }
+.le-audit-pill.not-indexable { background: #fee4e2; color: #b42318; }
+.le-audit-pill.maybe         { background: #fff7e6; color: #946200; }
 [[/style]]
 
 [[div class="le-audit-wrap"]]
@@ -2174,7 +2277,7 @@ $token   = Session::getFormToken();
         [[/p]]
 
         [[div style="margin-top:18px;border:1px solid #d0d7de;border-radius:8px;padding:16px 20px;"]]
-            [[p style="margin:0 0 4px;font-weight:700;font-size:15px;color:#1a73e8;"]]&#9881; Scan Options[[/p]]
+            [[p style="margin:0 0 4px;font-weight:700;font-size:15px;color:#1a73e8;"]]Scan Options[[/p]]
             [[form id="leSaveOptionsForm" method="post" action="<?php echo htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8'); ?>" style="margin-top:10px;"]]
                 [[input type="hidden" name="audit_action" value="save_options"]]
                 [[input type="hidden" name="<?php echo $token; ?>" value="1"]]
@@ -2184,14 +2287,14 @@ $token   = Session::getFormToken();
                 [[div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px 24px;margin-bottom:14px;"]]
                     <?php
                     $opts = [
-                        ['opt_broken_internal',       'check_broken_internal',       '? Broken Internal Pages',       'Flag crawled pages that return 404/5xx'],
-                        ['opt_broken_internal_links', 'check_broken_internal_links', '? Internal Link Checker',        'HEAD-check internal links found on each page for broken destinations'],
-                        ['opt_broken_external',       'check_broken_external',       '? Broken External Links',        'HEAD-check outbound links to other sites'],
-                        ['opt_broken_images',         'check_broken_images',         '? Missing Images',               'HEAD-check image src URLs (logos, photos)'],
-                        ['opt_seo',                   'check_seo',                   '? SEO Checks',                   'Title, meta description, canonical, H1, noindex'],
-                        ['opt_speed',                 'check_speed',                 '⚡ Page Speed',                   'Flag pages loading over 3 seconds'],
-                        ['opt_alt_text',              'check_alt_text',              '♿ Alt Text',                     'Flag images missing alt attribute'],
-                        ['opt_store_passed',          'store_passed_pages',          '✅ Store Passed Pages',           'Keep full data for pages with no issues (uses more memory)'],
+                        ['opt_broken_internal',       'check_broken_internal',       'Broken Internal Pages',       'Flag crawled pages that return 404/5xx'],
+                        ['opt_broken_internal_links', 'check_broken_internal_links', 'Internal Link Checker',        'HEAD-check internal links found on each page for broken destinations'],
+                        ['opt_broken_external',       'check_broken_external',       'Broken External Links',        'HEAD-check outbound links to other sites'],
+                        ['opt_broken_images',         'check_broken_images',         'Missing Images',               'HEAD-check image src URLs (logos, photos)'],
+                        ['opt_seo',                   'check_seo',                   'SEO Checks',                   'Title, meta description, canonical, H1, noindex'],
+                        ['opt_speed',                 'check_speed',                 'Page Speed',                   'Flag pages loading over 3 seconds'],
+                        ['opt_alt_text',              'check_alt_text',              'Alt Text',                     'Flag images missing alt attribute'],
+                        ['opt_store_passed',          'store_passed_pages',          'Store Passed Pages',           'Keep full data for pages with no issues (uses more memory)'],
                     ];
                     foreach ($opts as [$fieldName, $optKey, $label, $desc]) :
                         $checked = ($scanOptions[$optKey] ?? false) ? ' checked' : '';
@@ -2220,12 +2323,12 @@ $token   = Session::getFormToken();
 
             [[button id="leBtnAutoScan" class="le-audit-button secondary" type="button"]]Auto Scan Until Finished[[/button]]
 
-            [[button id="leBtnStopScan" class="le-audit-button secondary" type="button" style="display:none;"]]⏹ Stop Auto Scan[[/button]]
+            [[button id="leBtnStopScan" class="le-audit-button secondary" type="button" style="display:none;"]]Stop Auto Scan[[/button]]
 
             [[form id="leStopAllForm" method="post" action="<?php echo htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8'); ?>" onsubmit="return leStopAllConfirm();"]]
                 [[input type="hidden" name="audit_action" value="stop_all"]]
                 [[input type="hidden" name="<?php echo $token; ?>" value="1"]]
-                [[button class="le-audit-button danger" type="submit"]]? Stop All[[/button]]
+                [[button class="le-audit-button danger" type="submit"]]Stop All[[/button]]
             [[/form]]
 
             [[form method="post" action="<?php echo htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8'); ?>"]]
@@ -2237,7 +2340,31 @@ $token   = Session::getFormToken();
             [[form method="post" action="<?php echo htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8'); ?>"]]
                 [[input type="hidden" name="audit_action" value="export_csv"]]
                 [[input type="hidden" name="<?php echo $token; ?>" value="1"]]
-                [[button class="le-audit-button secondary" type="submit" data-no-loading="1"]]Export CSV[[/button]]
+                [[button class="le-audit-button secondary" type="submit" data-no-loading="1"]]Export Full CSV[[/button]]
+            [[/form]]
+
+            [[form method="post" action="<?php echo htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8'); ?>"]]
+                [[input type="hidden" name="audit_action" value="export_top_fixes_csv"]]
+                [[input type="hidden" name="<?php echo $token; ?>" value="1"]]
+                [[button class="le-audit-button export" type="submit" data-no-loading="1"]]Export Top Fixes CSV[[/button]]
+            [[/form]]
+
+            [[form method="post" action="<?php echo htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8'); ?>"]]
+                [[input type="hidden" name="audit_action" value="export_broken_links_csv"]]
+                [[input type="hidden" name="<?php echo $token; ?>" value="1"]]
+                [[button class="le-audit-button export" type="submit" data-no-loading="1"]]Export Broken Links CSV[[/button]]
+            [[/form]]
+
+            [[form method="post" action="<?php echo htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8'); ?>"]]
+                [[input type="hidden" name="audit_action" value="export_seo_csv"]]
+                [[input type="hidden" name="<?php echo $token; ?>" value="1"]]
+                [[button class="le-audit-button export" type="submit" data-no-loading="1"]]Export SEO Issues CSV[[/button]]
+            [[/form]]
+
+            [[form method="post" action="<?php echo htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8'); ?>"]]
+                [[input type="hidden" name="audit_action" value="export_json"]]
+                [[input type="hidden" name="<?php echo $token; ?>" value="1"]]
+                [[button class="le-audit-button export" type="submit" data-no-loading="1"]]Export JSON[[/button]]
             [[/form]]
 
             [[form method="post" action="<?php echo htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8'); ?>" onsubmit="return confirm('Reset the full audit queue and results?');"]]
@@ -2283,6 +2410,84 @@ $token   = Session::getFormToken();
             [[div class="le-audit-metric"]][[strong]]<?php echo (int) $summary['broken_links_total']; ?>[[/strong]][[span]]Broken Links &amp; Missing Images[[/span]][[/div]]
         [[/div]]
     [[/section]]
+
+    [[section class="le-audit-card"]]
+        [[h2]]Site Health Scores[[/h2]]
+        [[p class="le-audit-small"]]Scores are computed from actual scan data. 80-100 is good (green), 60-79 is fair (yellow), below 60 needs attention (red). Scores update after each batch.[[/p]]
+        [[div class="le-health-grid"]]
+            <?php
+            $scoreLabels = [
+                'overall'       => 'Overall',
+                'seo'           => 'SEO',
+                'crawlability'  => 'Crawlability',
+                'performance'   => 'Performance',
+                'accessibility' => 'Accessibility',
+                'indexability'  => 'Indexability',
+                'broken_link'   => 'Broken Links',
+            ];
+            foreach ($scoreLabels as $key => $label) :
+                $sc = (int) ($healthScores[$key] ?? 100);
+                $cls = $sc >= 80 ? 'le-score-green' : ($sc >= 60 ? 'le-score-yellow' : 'le-score-red');
+            ?>
+            [[div class="le-health-card <?php echo $cls; ?>"]]
+                [[div class="le-health-score"]]<?php echo $sc; ?>[[/div]]
+                [[div class="le-health-label"]]<?php echo htmlspecialchars($label, ENT_QUOTES, 'UTF-8'); ?>[[/div]]
+            [[/div]]
+            <?php endforeach; ?>
+        [[/div]]
+    [[/section]]
+
+    <?php if (!empty($priorityIssues)) : ?>
+    [[section class="le-audit-card"]]
+        [[h2]]Top Priority Fixes[[/h2]]
+        [[p class="le-audit-small"]]Highest-priority issues found across the site, sorted by impact. Fix Critical items first.[[/p]]
+        [[div class="le-audit-table-wrap"]]
+            [[table class="le-audit-table" id="leTopFixesTable"]]
+                [[thead]]
+                    [[tr]]
+                        [[th]]Priority[[/th]]
+                        [[th]]Severity[[/th]]
+                        [[th]]Category[[/th]]
+                        [[th]]Issue[[/th]]
+                        [[th]]Affected URL[[/th]]
+                        [[th]]Source Page[[/th]]
+                        [[th]]Evidence[[/th]]
+                        [[th]]Recommended Fix[[/th]]
+                    [[/tr]]
+                [[/thead]]
+                [[tbody]]
+                    <?php foreach (array_slice($priorityIssues, 0, 25) as $pIssue) :
+                        $sevClass = match(strtolower($pIssue['severity'] ?? '')) {
+                            'critical' => 'le-sev-critical',
+                            'high'     => 'le-sev-high',
+                            'medium'   => 'le-sev-medium',
+                            default    => 'le-sev-low',
+                        };
+                    ?>
+                    [[tr]]
+                        [[td]][[span class="le-priority-score <?php echo $sevClass; ?>"]]<?php echo (int) $pIssue['priority_score']; ?>[[/span]][[/td]]
+                        [[td]][[span class="le-audit-pill <?php echo strtolower($pIssue['severity'] ?? 'low') === 'critical' ? 'critical' : (strtolower($pIssue['severity'] ?? 'low') === 'high' ? 'critical' : 'warning'); ?>"]]<?php echo htmlspecialchars($pIssue['severity'] ?? '', ENT_QUOTES, 'UTF-8'); ?>[[/span]][[/td]]
+                        [[td class="le-audit-small"]]<?php echo htmlspecialchars($pIssue['issue_category'] ?? '', ENT_QUOTES, 'UTF-8'); ?>[[/td]]
+                        [[td]][[strong]]<?php echo htmlspecialchars($pIssue['issue_code'] ?? '', ENT_QUOTES, 'UTF-8'); ?>[[/strong]][[/td]]
+                        [[td class="le-audit-url"]]
+                            <?php if (!empty($pIssue['affected_url'])) : ?>
+                            [[a href="<?php echo htmlspecialchars($pIssue['affected_url'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"]]<?php echo htmlspecialchars($pIssue['affected_url'], ENT_QUOTES, 'UTF-8'); ?>[[/a]]
+                            <?php endif; ?>
+                        [[/td]]
+                        [[td class="le-audit-url le-audit-small"]]
+                            <?php if (!empty($pIssue['source_page'])) : ?>
+                            [[a href="<?php echo htmlspecialchars($pIssue['source_page'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"]]<?php echo htmlspecialchars($pIssue['source_page'], ENT_QUOTES, 'UTF-8'); ?>[[/a]]
+                            <?php endif; ?>
+                        [[/td]]
+                        [[td class="le-audit-small"]]<?php echo htmlspecialchars($pIssue['evidence'] ?? '', ENT_QUOTES, 'UTF-8'); ?>[[/td]]
+                        [[td class="le-audit-small"]]<?php echo htmlspecialchars($pIssue['recommended_fix'] ?? '', ENT_QUOTES, 'UTF-8'); ?>[[/td]]
+                    [[/tr]]
+                    <?php endforeach; ?>
+                [[/tbody]]
+            [[/table]]
+        [[/div]]
+    [[/section]]
+    <?php endif; ?>
 
     [[section id="leAutorunRunning" class="le-audit-card" style="display:none"]]
         [[h2]]Auto Scan Running[[/h2]]
@@ -2348,20 +2553,36 @@ $token   = Session::getFormToken();
         <?php if (empty($criticalItems)) : ?>
             [[p]][[span class="le-audit-pill pass"]]PASS[[/span]] No critical issues found yet.[[/p]]
         <?php else : ?>
+            [[div class="le-filter-bar"]]
+                [[label]]Search URL:[[/label]]
+                [[input type="text" id="leCritFilterUrl" placeholder="Filter by URL..."]]
+                [[label]]Status:[[/label]]
+                [[select id="leCritFilterStatus"]]
+                    [[option value=""]]All Statuses[[/option]]
+                    [[option value="200"]]200[[/option]]
+                    [[option value="301"]]301[[/option]]
+                    [[option value="404"]]404[[/option]]
+                    [[option value="500"]]500[[/option]]
+                [[/select]]
+                [[label]][[input type="checkbox" id="leCritFilterImportant"]] Important Pages Only[[/label]]
+            [[/div]]
             [[div class="le-audit-table-wrap"]]
-                [[table class="le-audit-table"]]
+                [[table class="le-audit-table" id="leCritTable"]]
                     [[thead]]
                         [[tr]]
-                            [[th]]Status[[/th]][[th]]URL[[/th]][[th]]Issues[[/th]]
+                            [[th]]Status[[/th]][[th]]Page Type[[/th]][[th]]URL[[/th]][[th]]Issues[[/th]]
                             [[th]]Found On (source page)[[/th]]
                             [[th]]Title[[/th]][[th]]H1 Text[[/th]][[th]]Meta Description[[/th]]
                             [[th]]Canonical[[/th]][[th]]Load[[/th]]
                         [[/tr]]
                     [[/thead]]
                     [[tbody]]
-                        <?php foreach ($criticalItems as $item) : ?>
-                            [[tr]]
+                        <?php foreach ($criticalItems as $item) :
+                            $impAttr = !empty($item['is_important']) ? '1' : '0';
+                        ?>
+                            [[tr data-url="<?php echo htmlspecialchars($item['url'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" data-status="<?php echo (int)($item['status'] ?? 0); ?>" data-important="<?php echo $impAttr; ?>"]]
                                 [[td]][[span class="le-audit-pill critical"]]<?php echo (int) $item['status']; ?>[[/span]][[/td]]
+                                [[td class="le-audit-small"]]<?php echo htmlspecialchars($item['page_type'] ?? 'Unknown', ENT_QUOTES, 'UTF-8'); ?>[[/td]]
                                 [[td class="le-audit-url"]]
                                     [[a href="<?php echo htmlspecialchars($item['url'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"]]
                                         <?php echo htmlspecialchars($item['url'], ENT_QUOTES, 'UTF-8'); ?>
@@ -2373,7 +2594,7 @@ $token   = Session::getFormToken();
                                     if ($srcPage !== '') {
                                         echo '[[a href="' . htmlspecialchars($srcPage, ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener"]]' . htmlspecialchars($srcPage, ENT_QUOTES, 'UTF-8') . '[[/a]]';
                                     } else {
-                                        echo '[[span class="le-audit-small" style="color:#888;"]]—[[/span]]';
+                                        echo '[[span class="le-audit-small" style="color:#888;"]]&mdash;[[/span]]';
                                     }
                                 ?>[[/td]]
                                 [[td]]<?php echo htmlspecialchars($item['title'] ?? '', ENT_QUOTES, 'UTF-8'); ?>[[/td]]
@@ -2566,11 +2787,169 @@ $token   = Session::getFormToken();
     <?php endif; ?>
 
     [[section class="le-audit-card"]]
-        [[h2]]CSV Export[[/h2]]
+        [[h2]]CSV Export and Downloads[[/h2]]
         [[p class="le-audit-small"]]
-            Use the &ldquo;Export CSV&rdquo; button above to download all scanned results as a CSV file directly to your computer.
+            Use the export buttons above to download scan data. All exports include a UTF-8 BOM for Excel compatibility.
         [[/p]]
+        [[div class="le-export-row"]]
+            [[form method="post" action="<?php echo htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8'); ?>"]]
+                [[input type="hidden" name="audit_action" value="export_csv"]]
+                [[input type="hidden" name="<?php echo $token; ?>" value="1"]]
+                [[button class="le-audit-button export" type="submit"]]Export Full CSV[[/button]]
+            [[/form]]
+            [[form method="post" action="<?php echo htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8'); ?>"]]
+                [[input type="hidden" name="audit_action" value="export_top_fixes_csv"]]
+                [[input type="hidden" name="<?php echo $token; ?>" value="1"]]
+                [[button class="le-audit-button export" type="submit"]]Export Top Fixes CSV[[/button]]
+            [[/form]]
+            [[form method="post" action="<?php echo htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8'); ?>"]]
+                [[input type="hidden" name="audit_action" value="export_broken_links_csv"]]
+                [[input type="hidden" name="<?php echo $token; ?>" value="1"]]
+                [[button class="le-audit-button export" type="submit"]]Export Broken Links CSV[[/button]]
+            [[/form]]
+            [[form method="post" action="<?php echo htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8'); ?>"]]
+                [[input type="hidden" name="audit_action" value="export_seo_csv"]]
+                [[input type="hidden" name="<?php echo $token; ?>" value="1"]]
+                [[button class="le-audit-button export" type="submit"]]Export SEO Issues CSV[[/button]]
+            [[/form]]
+            [[form method="post" action="<?php echo htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8'); ?>"]]
+                [[input type="hidden" name="audit_action" value="export_json"]]
+                [[input type="hidden" name="<?php echo $token; ?>" value="1"]]
+                [[button class="le-audit-button export" type="submit"]]Export JSON[[/button]]
+            [[/form]]
+        [[/div]]
     [[/section]]
+
+    <?php if (!empty($slowDiagPages)) : ?>
+    [[section class="le-audit-card"]]
+        [[h2]]Performance Diagnostics &mdash; Slowest Pages[[/h2]]
+        [[p class="le-audit-small"]]Pages that are Slow (3-5 s) or Very Slow (over 5 s). These directly affect rankings and conversions. Fix these after critical SEO issues.[[/p]]
+        [[div class="le-audit-table-wrap"]]
+            [[table class="le-audit-table"]]
+                [[thead]]
+                    [[tr]]
+                        [[th]]Load Time[[/th]][[th]]Tier[[/th]][[th]]Page Type[[/th]][[th]]URL[[/th]]
+                        [[th]]HTML Size KB[[/th]][[th]]Scripts[[/th]][[th]]Images[[/th]][[th]]3rd-Party Domains[[/th]]
+                    [[/tr]]
+                [[/thead]]
+                [[tbody]]
+                    <?php foreach ($slowDiagPages as $item) : ?>
+                    [[tr]]
+                        [[td]][[strong]]<?php echo (int)($item['load_time_ms'] ?? 0); ?> ms[[/strong]][[/td]]
+                        [[td]][[span class="le-audit-pill <?php echo ($item['slow_tier'] ?? '') === 'Very Slow' ? 'critical' : 'warning'; ?>"]]<?php echo htmlspecialchars($item['slow_tier'] ?? '', ENT_QUOTES, 'UTF-8'); ?>[[/span]][[/td]]
+                        [[td class="le-audit-small"]]<?php echo htmlspecialchars($item['page_type'] ?? 'Unknown', ENT_QUOTES, 'UTF-8'); ?>[[/td]]
+                        [[td class="le-audit-url"]][[a href="<?php echo htmlspecialchars($item['url'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"]]<?php echo htmlspecialchars($item['url'] ?? '', ENT_QUOTES, 'UTF-8'); ?>[[/a]][[/td]]
+                        [[td]]<?php echo (float)($item['html_size_kb'] ?? 0); ?>[[/td]]
+                        [[td]]<?php echo (int)($item['script_count'] ?? 0); ?>[[/td]]
+                        [[td]]<?php echo (int)($item['image_count'] ?? 0); ?>[[/td]]
+                        [[td]]<?php echo (int)($item['third_party_domain_count'] ?? 0); ?>[[/td]]
+                    [[/tr]]
+                    <?php endforeach; ?>
+                [[/tbody]]
+            [[/table]]
+        [[/div]]
+    [[/section]]
+    <?php endif; ?>
+
+    <?php if (!empty($invalidSchemaPages) || !empty($noSchemaPages)) : ?>
+    [[section class="le-audit-card"]]
+        [[h2]]Structured Data (JSON-LD) Diagnostics[[/h2]]
+        [[p class="le-audit-small"]]Structured data helps search engines understand your content and can enable rich results. Invalid JSON-LD is silently ignored by Google.[[/p]]
+        <?php if (!empty($invalidSchemaPages)) : ?>
+            [[h3 style="font-size:15px;margin:12px 0 6px;"]]Pages with Invalid JSON-LD[[/h3]]
+            [[div class="le-audit-table-wrap"]]
+                [[table class="le-audit-table"]]
+                    [[thead]][[tr]][[th]]URL[[/th]][[th]]Invalid Blocks[[/th]][[th]]Valid Blocks[[/th]][[th]]Schema Types[[/th]][[/tr]][[/thead]]
+                    [[tbody]]
+                        <?php foreach ($invalidSchemaPages as $item) : ?>
+                        [[tr]]
+                            [[td class="le-audit-url"]][[a href="<?php echo htmlspecialchars($item['url'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"]]<?php echo htmlspecialchars($item['url'] ?? '', ENT_QUOTES, 'UTF-8'); ?>[[/a]][[/td]]
+                            [[td]][[span class="le-audit-pill critical"]]<?php echo (int)($item['invalid_json_ld_count'] ?? 0); ?>[[/span]][[/td]]
+                            [[td]]<?php echo (int)($item['json_ld_count'] ?? 0); ?>[[/td]]
+                            [[td class="le-audit-small"]]<?php echo htmlspecialchars(implode(', ', $item['schema_types'] ?? []), ENT_QUOTES, 'UTF-8'); ?>[[/td]]
+                        [[/tr]]
+                        <?php endforeach; ?>
+                    [[/tbody]]
+                [[/table]]
+            [[/div]]
+        <?php endif; ?>
+        <?php if (!empty($noSchemaPages)) : ?>
+            [[h3 style="font-size:15px;margin:12px 0 6px;"]]Pages with No Structured Data (showing up to 30)[[/h3]]
+            [[p class="le-audit-small"]]These pages have no JSON-LD. Consider adding WebPage, BreadcrumbList, Article, or FAQPage schema as appropriate.[[/p]]
+            [[div class="le-audit-table-wrap"]]
+                [[table class="le-audit-table"]]
+                    [[thead]][[tr]][[th]]Page Type[[/th]][[th]]URL[[/th]][[/tr]][[/thead]]
+                    [[tbody]]
+                        <?php foreach ($noSchemaPages as $item) : ?>
+                        [[tr]]
+                            [[td class="le-audit-small"]]<?php echo htmlspecialchars($item['page_type'] ?? 'Unknown', ENT_QUOTES, 'UTF-8'); ?>[[/td]]
+                            [[td class="le-audit-url"]][[a href="<?php echo htmlspecialchars($item['url'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"]]<?php echo htmlspecialchars($item['url'] ?? '', ENT_QUOTES, 'UTF-8'); ?>[[/a]][[/td]]
+                        [[/tr]]
+                        <?php endforeach; ?>
+                    [[/tbody]]
+                [[/table]]
+            [[/div]]
+        <?php endif; ?>
+    [[/section]]
+    <?php endif; ?>
+
+    <?php if (!empty($thinContentPages)) : ?>
+    [[section class="le-audit-card"]]
+        [[h2]]Thin Content Pages[[/h2]]
+        [[p class="le-audit-small"]]Pages with fewer than 250 visible words. Thin pages rarely rank well and may trigger Google quality filters. Prioritise important page types first.[[/p]]
+        [[div class="le-audit-table-wrap"]]
+            [[table class="le-audit-table"]]
+                [[thead]][[tr]][[th]]Words[[/th]][[th]]Page Type[[/th]][[th]]Important[[/th]][[th]]URL[[/th]][[th]]Title[[/th]][[/tr]][[/thead]]
+                [[tbody]]
+                    <?php foreach ($thinContentPages as $item) : ?>
+                    [[tr]]
+                        [[td]][[span class="le-audit-pill warning"]]<?php echo (int)($item['word_count'] ?? 0); ?>[[/span]][[/td]]
+                        [[td class="le-audit-small"]]<?php echo htmlspecialchars($item['page_type'] ?? 'Unknown', ENT_QUOTES, 'UTF-8'); ?>[[/td]]
+                        [[td]]<?php echo !empty($item['is_important']) ? 'Yes' : 'No'; ?>[[/td]]
+                        [[td class="le-audit-url"]][[a href="<?php echo htmlspecialchars($item['url'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"]]<?php echo htmlspecialchars($item['url'] ?? '', ENT_QUOTES, 'UTF-8'); ?>[[/a]][[/td]]
+                        [[td]]<?php echo htmlspecialchars($item['title'] ?? '', ENT_QUOTES, 'UTF-8'); ?>[[/td]]
+                    [[/tr]]
+                    <?php endforeach; ?>
+                [[/tbody]]
+            [[/table]]
+        [[/div]]
+    [[/section]]
+    <?php endif; ?>
+
+    <?php if (!empty($dupTitleGroups) || !empty($dupDescGroups)) : ?>
+    [[section class="le-audit-card"]]
+        [[h2]]Duplicate Metadata[[/h2]]
+        [[p class="le-audit-small"]]Pages sharing identical titles or meta descriptions. Duplicate metadata confuses search engines about page purpose and can reduce rankings for all affected pages. Fix: rewrite each title/description to be unique.[[/p]]
+        <?php if (!empty($dupTitleGroups)) : ?>
+            [[h3 style="font-size:15px;margin:12px 0 6px;"]]Duplicate Titles (<?php echo count($dupTitleGroups); ?> group<?php echo count($dupTitleGroups) !== 1 ? 's' : ''; ?>)[[/h3]]
+            <?php foreach ($dupTitleGroups as $title => $urls) : ?>
+            [[div style="margin-bottom:14px;padding:12px;border:1px solid #f5c518;border-radius:8px;background:#fffbea;"]]
+                [[p style="margin:0 0 6px;font-weight:700;"]]"<?php echo htmlspecialchars(mb_substr($title, 0, 120, 'UTF-8'), ENT_QUOTES, 'UTF-8'); ?>"[[/p]]
+                [[p class="le-audit-small" style="margin:0 0 4px;"]]<?php echo count($urls); ?> pages share this title:[[/p]]
+                [[ul class="le-audit-small" style="margin:0 0 0 18px;padding:0;"]]
+                    <?php foreach ($urls as $u) : ?>
+                    [[li]][[a href="<?php echo htmlspecialchars($u, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"]]<?php echo htmlspecialchars($u, ENT_QUOTES, 'UTF-8'); ?>[[/a]][[/li]]
+                    <?php endforeach; ?>
+                [[/ul]]
+            [[/div]]
+            <?php endforeach; ?>
+        <?php endif; ?>
+        <?php if (!empty($dupDescGroups)) : ?>
+            [[h3 style="font-size:15px;margin:12px 0 6px;"]]Duplicate Meta Descriptions (<?php echo count($dupDescGroups); ?> group<?php echo count($dupDescGroups) !== 1 ? 's' : ''; ?>)[[/h3]]
+            <?php foreach ($dupDescGroups as $desc => $urls) : ?>
+            [[div style="margin-bottom:14px;padding:12px;border:1px solid #f5c518;border-radius:8px;background:#fffbea;"]]
+                [[p style="margin:0 0 6px;font-weight:700;"]]"<?php echo htmlspecialchars(mb_substr($desc, 0, 120, 'UTF-8'), ENT_QUOTES, 'UTF-8'); ?>"[[/p]]
+                [[p class="le-audit-small" style="margin:0 0 4px;"]]<?php echo count($urls); ?> pages share this description:[[/p]]
+                [[ul class="le-audit-small" style="margin:0 0 0 18px;padding:0;"]]
+                    <?php foreach ($urls as $u) : ?>
+                    [[li]][[a href="<?php echo htmlspecialchars($u, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"]]<?php echo htmlspecialchars($u, ENT_QUOTES, 'UTF-8'); ?>[[/a]][[/li]]
+                    <?php endforeach; ?>
+                [[/ul]]
+            [[/div]]
+            <?php endforeach; ?>
+        <?php endif; ?>
+    [[/section]]
+    <?php endif; ?>
 
 [[/div]]
 
@@ -2802,7 +3181,7 @@ $token   = Session::getFormToken();
     if (autoBtn) {
         autoBtn.addEventListener('click', function () {
             sessionStorage.setItem(AUTORUN_KEY, '1');
-            this.innerHTML = 'Auto Scan Running\u2026';
+            this.innerHTML = 'Auto Scan Running...';
             this.disabled = true;
             var sb = document.getElementById('leBtnStopScan');
             if (sb) { sb.style.display = ''; }
@@ -2841,7 +3220,7 @@ $token   = Session::getFormToken();
         if (savedY > 0) { window.scrollTo(0, savedY); }
         if (pending > 0) {
             if (stopBtn)  { stopBtn.style.display = ''; }
-            if (autoBtn)  { autoBtn.innerHTML = 'Auto Scan Running\u2026'; autoBtn.disabled = true; }
+            if (autoBtn)  { autoBtn.innerHTML = 'Auto Scan Running...'; autoBtn.disabled = true; }
             if (runningBanner) {
                 runningBanner.style.display = '';
                 if (pendingSpan) { pendingSpan.textContent = pending; }
@@ -2853,6 +3232,43 @@ $token   = Session::getFormToken();
             if (doneBanner) { doneBanner.style.display = ''; }
         }
     }
+
+    // ── Client-side table filter (ES5) ────────────────────────────────────
+    function leFilterTable(tableId, filterFn) {
+        var table = document.getElementById(tableId);
+        if (!table) { return; }
+        var tbody = table.getElementsByTagName('tbody')[0];
+        if (!tbody) { return; }
+        var rows = tbody.getElementsByTagName('tr');
+        for (var i = 0; i < rows.length; i++) {
+            rows[i].style.display = filterFn(rows[i]) ? '' : 'none';
+        }
+    }
+
+    function leApplyCritFilter() {
+        var urlVal  = (document.getElementById('leCritFilterUrl')       || {}).value  || '';
+        var statVal = (document.getElementById('leCritFilterStatus')    || {}).value  || '';
+        var impEl   = document.getElementById('leCritFilterImportant');
+        var impOnly = impEl ? impEl.checked : false;
+        urlVal  = urlVal.toLowerCase();
+        leFilterTable('leCritTable', function (row) {
+            var rowUrl    = (row.getAttribute('data-url')       || '').toLowerCase();
+            var rowStatus = row.getAttribute('data-status')     || '';
+            var rowImp    = row.getAttribute('data-important')  || '0';
+            if (urlVal   && rowUrl.indexOf(urlVal) === -1)   { return false; }
+            if (statVal  && rowStatus !== statVal)            { return false; }
+            if (impOnly  && rowImp !== '1')                   { return false; }
+            return true;
+        });
+    }
+
+    var critUrlInput   = document.getElementById('leCritFilterUrl');
+    var critStatSelect = document.getElementById('leCritFilterStatus');
+    var critImpCheck   = document.getElementById('leCritFilterImportant');
+    if (critUrlInput)   { critUrlInput.addEventListener('input',  leApplyCritFilter); }
+    if (critStatSelect) { critStatSelect.addEventListener('change', leApplyCritFilter); }
+    if (critImpCheck)   { critImpCheck.addEventListener('change',  leApplyCritFilter); }
+
 })();
 [[/script]]
 {/source}
