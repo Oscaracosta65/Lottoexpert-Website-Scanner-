@@ -166,7 +166,7 @@ function leAuditNormalizeUrl(string $url, array $config): string
     return rtrim($clean, '/') === $root ? $root . '/' : rtrim($clean, '/');
 }
 
-function leAuditSessionGet(string $key, $default): mixed
+function leAuditSessionGet(string $key, array $default): array
 {
     $session = Factory::getApplication()->getSession();
     $val     = $session->get($key, null);
@@ -662,10 +662,10 @@ function leAuditHasNoindex(string $html, string $responseHeaders = ''): bool
 
 function leAuditCheckUrl(string $url, array $config, array $options = []): array
 {
-    $checkSeo            = $options['check_seo']              ?? true;
-    $checkSpeed          = $options['check_speed']            ?? true;
-    $checkAltText        = $options['check_alt_text']         ?? true;
-    $checkBrokenInternal = $options['check_broken_internal']  ?? true;
+    $checkSeo            = $options['check_seo']             ?? true;
+    $checkSpeed          = $options['check_speed']           ?? true;
+    $checkAltText        = $options['check_alt_text']        ?? true;
+    $checkBrokenInternal = $options['check_broken_internal'] ?? true;
 
     $fetch = leAuditFetchUrl($url, $config);
     $html  = $fetch['body'];
@@ -3368,10 +3368,14 @@ $token   = Session::getFormToken();
 <script>
 (function () {
     // ES5-safe FormData field override: delete any existing values then append.
+    // The delete() call removes duplicate fields that may already exist in the
+    // form's FormData (e.g. audit_action hidden input). If delete() is unsupported
+    // (very old browsers), the try/catch is intentional: append still works and
+    // the server will use the last value for the duplicated field name.
     function leFormDataSet(fd, name, value) {
         try {
             if (typeof fd['delete'] === 'function') { fd['delete'](name); }
-        } catch (e) {}
+        } catch (e) { /* intentional: append fallback handles duplicates */ }
         fd.append(name, value);
     }
 
