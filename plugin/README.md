@@ -55,4 +55,4 @@ The Sourcerer-embedded version suffered from PHP syntax errors triggered by Sour
 
 ## Configuration
 
-Scanner config (site root, allowed hosts, batch size, etc.) is hardcoded in `DisplayController::display()` around line 600. Edit those values to point at a different domain.
+Scanner config (site root, allowed hosts, batch size, etc.) is hardcoded in `DisplayController::display()` in the `$config` array near the top of that method. Edit those values to point at a different domain.

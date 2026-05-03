@@ -224,7 +224,7 @@ $message        = $this->message;
     <section class="le-audit-card">
         <h1 class="le-audit-title">LottoExpert Full Site Audit Scanner</h1>
         <p class="le-audit-subtitle">
-            Private crawler for LottoExpert. Discovers internal URLs from the sitemap (including nested sitemap index files), crawls internal links, scans 10 URLs per batch, auto-continues without timeouts, and reports SEO, crawlability, metadata, canonical, H1, noindex, image alt, speed, and broken-page issues.
+            Private crawler for LottoExpert. Discovers internal URLs from the sitemap (including nested sitemap index files), crawls internal links, scans 15 URLs per batch, auto-continues without timeouts, and reports SEO, crawlability, metadata, canonical, H1, noindex, image alt, speed, and broken-page issues.
         </p>
 
         <div style="margin-top:18px;border:1px solid #d0d7de;border-radius:8px;padding:16px 20px;">
@@ -269,7 +269,7 @@ $message        = $this->message;
             <form id="leAutoScanForm" method="post" action="<?php echo htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8'); ?>">
                 <input type="hidden" name="audit_action" value="scan_batch">
                 <input type="hidden" name="<?php echo $token; ?>" value="1">
-                <button class="le-audit-button" type="submit">Scan Next 10 URLs</button>
+                <button class="le-audit-button" type="submit">Scan Next 15 URLs</button>
             </form>
 
             <button id="leBtnAutoScan" class="le-audit-button secondary" type="button">Auto Scan Until Finished</button>
