@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<extension type="component" method="upgrade">
+    <name>com_lesiteaudit</name>
+    <author>LottoExpert</author>
+    <authorUrl>https://lottoexpert.net</authorUrl>
+    <creationDate>2026-05-03</creationDate>
+    <copyright>LottoExpert – Private Tool</copyright>
+    <license>Proprietary</license>
+    <version>1.0.0</version>
+    <description>Private full-site SEO and crawl audit scanner for lottoexpert.net. Accessible only to Super Administrators via the Joomla back-end.</description>
+
+    <namespace path="src">LottoExpert\Component\LeSiteAudit</namespace>
+
+    <administration>
+        <menu>Site Audit</menu>
+        <files folder="admin">
+            <folder>services</folder>
+            <folder>src</folder>
+            <folder>tmpl</folder>
+        </files>
+    </administration>
+</extension>
