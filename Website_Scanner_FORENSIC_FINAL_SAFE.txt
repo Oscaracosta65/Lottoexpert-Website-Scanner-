@@ -2181,7 +2181,7 @@ $baseUrl = Uri::current();
 $token   = Session::getFormToken();
 ?>
 
-<style>
+[[style]]
 /* -- LottoExpert Brand Tokens ----------------------------------------------- */
 :root {
     --le-navy:       #0f2d5a;
@@ -2632,7 +2632,7 @@ $token   = Session::getFormToken();
 .le-audit-pill.indexable     { background: #dcfae6; color: #067647; }
 .le-audit-pill.not-indexable { background: #fee4e2; color: #b42318; }
 .le-audit-pill.maybe         { background: #fff7e6; color: #946200; }
-</style>
+[[/style]]
 
 <div class="le-audit-wrap">
 
@@ -3365,7 +3365,7 @@ $token   = Session::getFormToken();
 </div>
 
 <div id="leAuditMeta" data-pending="<?php echo (int) $pendingCount; ?>" style="display:none"></div>
-<script>
+[[script]]
 (function () {
     // ES5-safe FormData field override: delete any existing values then append.
     // The delete() call removes duplicate fields that may already exist in the
@@ -3728,5 +3728,5 @@ $token   = Session::getFormToken();
     if (critImpCheck)   { critImpCheck.addEventListener('change',  leApplyCritFilter); }
 
 })();
-</script>
+[[/script]]
 {/source}
