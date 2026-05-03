@@ -15,6 +15,18 @@ use Joomla\CMS\Session\Session;
 $app   = Factory::getApplication();
 $input = $app->input;
 
+// ── Security Access Guard ────────────────────────────────────────────────────
+$leGuardUser = $app->getIdentity();
+if (!$leGuardUser || !$leGuardUser->id) {
+    echo '<p style="font-family:sans-serif;color:#b42318;font-weight:bold;padding:20px;">Access denied. You must be logged in to use this tool.</p>';
+    return;
+}
+$leIsAdmin = $leGuardUser->authorise('core.admin') || (bool) $leGuardUser->get('isRoot', false);
+if (!$leIsAdmin) {
+    echo '<p style="font-family:sans-serif;color:#b42318;font-weight:bold;padding:20px;">Access denied. Administrator or Super User access required.</p>';
+    return;
+}
+
 // ── Config ───────────────────────────────────────────────────────────────────
 $config = [
     'site_root'        => 'https://lottoexpert.net',
@@ -39,11 +51,24 @@ $config = [
         'tel:',
         'javascript:',
     ],
-    'sitemap_timeout'    => 30,
-    'sitemap_candidates' => [
+    'sitemap_timeout'       => 30,
+    'sitemap_candidates'    => [
         'https://lottoexpert.net/sitemap_xml.xml',
     ],
+    'private_token'          => '',
+    'max_broken_links_stored'=> 1000,
+    'max_items_stored'       => 5000,
+    'compact_mode'           => false,
 ];
+
+// Optional private token guard (set private_token above to enable)
+if ($config['private_token'] !== '') {
+    $leProvidedToken = (string) $input->getString('audit_token', '');
+    if (!hash_equals($config['private_token'], $leProvidedToken)) {
+        echo '<p style="font-family:sans-serif;color:#b42318;font-weight:bold;padding:20px;">Access denied. Invalid audit token.</p>';
+        return;
+    }
+}
 
 // ── Scan options ─────────────────────────────────────────────────────────────
 function leAuditGetDefaultOptions(): array
@@ -484,11 +509,13 @@ function leAuditExtractExternalLinks(string $html, array $config): array
     return array_values(array_unique($links));
 }
 
-function leAuditHeadCheckUrl(string $url): int
+function leAuditHeadCheckUrl(string $url, int $timeout = 5): array
 {
     if (!function_exists('curl_init')) {
-        return 0;
+        return ['status' => 0, 'final_url' => $url, 'method' => 'HEAD', 'error' => 'cURL unavailable'];
     }
+
+    // Try HEAD first
     $ch = curl_init();
     curl_setopt_array($ch, [
         CURLOPT_URL            => $url,
@@ -496,16 +523,45 @@ function leAuditHeadCheckUrl(string $url): int
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_FOLLOWLOCATION => true,
         CURLOPT_MAXREDIRS      => 5,
-        CURLOPT_CONNECTTIMEOUT => 5,
-        CURLOPT_TIMEOUT        => 5,
+        CURLOPT_CONNECTTIMEOUT => $timeout,
+        CURLOPT_TIMEOUT        => $timeout,
         CURLOPT_SSL_VERIFYPEER => false,
         CURLOPT_SSL_VERIFYHOST => 0,
-        CURLOPT_USERAGENT      => 'LottoExpert Private Audit Scanner/2.0',
+        CURLOPT_USERAGENT      => 'LottoExpert Private Audit Scanner/3.0',
     ]);
     curl_exec($ch);
-    $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $headStatus  = (int)    curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $headFinalUrl = (string) curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
+    $headError   = curl_error($ch);
     curl_close($ch);
-    return $status;
+
+    // Retry with GET for ambiguous or blocked statuses
+    $retryOnStatus = [0, 403, 405, 429];
+    if (in_array($headStatus, $retryOnStatus, true) || $headStatus >= 500) {
+        $ch2 = curl_init();
+        curl_setopt_array($ch2, [
+            CURLOPT_URL            => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS      => 5,
+            CURLOPT_CONNECTTIMEOUT => $timeout,
+            CURLOPT_TIMEOUT        => $timeout,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_USERAGENT      => 'LottoExpert Private Audit Scanner/3.0',
+            CURLOPT_ENCODING       => '',
+        ]);
+        curl_exec($ch2);
+        $getStatus   = (int)    curl_getinfo($ch2, CURLINFO_HTTP_CODE);
+        $getFinalUrl = (string) curl_getinfo($ch2, CURLINFO_EFFECTIVE_URL);
+        $getError    = curl_error($ch2);
+        curl_close($ch2);
+        if ($getStatus > 0) {
+            return ['status' => $getStatus, 'final_url' => $getFinalUrl, 'method' => 'GET', 'error' => $getError];
+        }
+    }
+
+    return ['status' => $headStatus, 'final_url' => $headFinalUrl, 'method' => 'HEAD', 'error' => $headError];
 }
 
 function leAuditExtractImages(string $html, string $baseUrl, array $config): array
@@ -605,21 +661,21 @@ function leAuditCheckUrl(string $url, array $config, array $options = []): array
         if ($title === '') {
             $issues[] = 'Missing title tag';
         } elseif ($titleLen < 10) {
-            $warnings[] = 'Page title is too short (' . $titleLen . ' chars) — Google recommends 50–70 characters. A very short title gives search engines almost no information about the page topic. Expand your title to clearly describe the page content.';
+            $warnings[] = 'Page title is too short (' . $titleLen . ' chars) — Google recommends 50-70 characters. A very short title gives search engines almost no information about the page topic. Expand your title to clearly describe the page content.';
         } elseif ($titleLen > 70) {
-            $warnings[] = 'Page title is too long (' . $titleLen . ' chars) — Google typically truncates titles longer than 70 characters in search results, cutting off part of your message. Edit the title to 50–70 characters.';
+            $warnings[] = 'Page title is too long (' . $titleLen . ' chars) — Google typically truncates titles longer than 70 characters in search results, cutting off part of your message. Edit the title to 50-70 characters.';
         }
 
         if ($description === '') {
             $issues[] = 'Missing meta description';
         } elseif ($descLen < 50) {
-            $warnings[] = 'Meta description is too short (' . $descLen . ' chars) — Search engines use this text as the snippet shown under your page title in results. A snippet under 50 characters is too brief to attract clicks. Write a 50–165 character description that summarises the page and encourages users to click.';
+            $warnings[] = 'Meta description is too short (' . $descLen . ' chars) — Search engines use this text as the snippet shown under your page title in results. A snippet under 50 characters is too brief to attract clicks. Write a 50-165 character description that summarises the page and encourages users to click.';
         } elseif ($descLen > 165) {
             $warnings[] = 'Meta description is too long (' . $descLen . ' chars) — Google will cut off descriptions longer than ~165 characters, leaving an incomplete sentence in search results. Trim your description to under 165 characters.';
         }
 
         if ($canonical === '') {
-            $warnings[] = 'Missing canonical tag — A canonical tag (<link rel="canonical" href="…">) tells search engines which version of this URL is the "official" one, preventing duplicate-content penalties when the same page is reachable via multiple URLs. Add a self-referencing canonical tag to the <head> of this page.';
+            $warnings[] = 'Missing canonical tag — A canonical tag tells search engines which version of this URL is the official one, preventing duplicate-content penalties when the same page is reachable via multiple URLs. Add a self-referencing canonical tag to the head of this page.';
         }
 
         if ($h1Count === 0) {
@@ -629,16 +685,92 @@ function leAuditCheckUrl(string $url, array $config, array $options = []): array
         }
 
         if ($noindex) {
-            $warnings[] = 'Page has a noindex directive — This page is actively instructing search engines NOT to index it (via a <meta name="robots" content="noindex"> tag or an X-Robots-Tag HTTP header). If this is unintentional, remove the noindex directive so the page can appear in search results.';
+            $warnings[] = 'Page has a noindex directive — This page is actively instructing search engines NOT to index it. If this is unintentional, remove the noindex directive so the page can appear in search results.';
         }
     }
 
     if ($checkAltText && $imgsNoAlt > 0 && $fetch['status'] >= 200 && $fetch['status'] < 300) {
-        $warnings[] = $imgsNoAlt . ' image(s) are missing alt text — The alt attribute on an <img> tag describes the image to search engines and screen-reader users. Missing alt text harms SEO and accessibility. Add a short, descriptive alt="…" to every image on this page.';
+        $warnings[] = $imgsNoAlt . ' image(s) are missing alt text — The alt attribute on an img tag describes the image to search engines and screen-reader users. Missing alt text harms SEO and accessibility. Add a short, descriptive alt attribute to every image on this page.';
     }
 
     if ($checkSpeed && $fetch['load_time_ms'] > 3000 && $fetch['status'] >= 200 && $fetch['status'] < 300) {
         $warnings[] = 'Slow page load time (' . $fetch['load_time_ms'] . ' ms) — Google uses page speed as a ranking factor; pages taking over 3 seconds to load are penalised and have higher visitor bounce rates. Investigate large images, render-blocking scripts, or slow server response times.';
+    }
+
+    // ── Performance diagnostics ──────────────────────────────────────────────
+    $htmlSizeKb       = round(strlen($html) / 1024, 1);
+    $scriptCount      = substr_count(strtolower($html), '<script');
+    $stylesheetCount  = substr_count(strtolower($html), '<link') + substr_count(strtolower($html), '<style');
+    $imageCount       = substr_count(strtolower($html), '<img');
+    $inlineScriptCount = 0;
+    if (preg_match_all('#<script(?![^>]*\bsrc\b)[^>]*>#i', $html, $inlineScripts)) {
+        $inlineScriptCount = count($inlineScripts[0]);
+    }
+    $thirdPartyDomains = [];
+    if (preg_match_all('#(?:src|href)=["\']https?://([^/"\']+)#i', $html, $domainMatches)) {
+        foreach ($domainMatches[1] as $d) {
+            $d = strtolower($d);
+            if (!in_array($d, $config['allowed_hosts'], true)) {
+                $thirdPartyDomains[$d] = true;
+            }
+        }
+    }
+    $thirdPartyDomainCount = count($thirdPartyDomains);
+    $slowTier = 'Fast';
+    if ($fetch['load_time_ms'] > 5000)      { $slowTier = 'Very Slow'; }
+    elseif ($fetch['load_time_ms'] > 3000)  { $slowTier = 'Slow'; }
+    elseif ($fetch['load_time_ms'] > 1000)  { $slowTier = 'Acceptable'; }
+
+    // ── Content quality ──────────────────────────────────────────────────────
+    $bodyText    = preg_replace('#<(script|style|noscript)[^>]*>.*?</\1>#is', '', $html);
+    $bodyText    = preg_replace('/\s+/', ' ', trim(strip_tags($bodyText)));
+    $wordCount   = ($bodyText !== '') ? count(explode(' ', $bodyText)) : 0;
+    $thinContent = ($wordCount < 250 && $fetch['status'] >= 200 && $fetch['status'] < 300);
+    $h2Count     = (int) (preg_match_all('#<h2\b#i', $html) ?: 0);
+    $h3Count     = (int) (preg_match_all('#<h3\b#i', $html) ?: 0);
+    $paragraphCount = (int) (preg_match_all('#<p\b#i', $html) ?: 0);
+
+    // ── Structured data (JSON-LD) ────────────────────────────────────────────
+    $jsonLdCount = 0; $invalidJsonLdCount = 0; $schemaTypes = [];
+    if (preg_match_all('#<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>#is', $html, $jldMatches)) {
+        foreach ($jldMatches[1] as $jldRaw) {
+            $decoded = json_decode(trim($jldRaw), true);
+            if ($decoded !== null) {
+                $jsonLdCount++;
+                $t = $decoded['@type'] ?? ($decoded[0]['@type'] ?? '');
+                if ($t !== '') { $schemaTypes[] = (string) $t; }
+            } else {
+                $invalidJsonLdCount++;
+            }
+        }
+    }
+
+    // ── Page type and importance ─────────────────────────────────────────────
+    $pageType       = leAuditDetectPageType($url, $title, $h1Text);
+    $importance     = leAuditDetectImportance($url, $pageType);
+    $isImportant    = $importance['is_important'];
+    $importanceScore = $importance['importance_score'];
+
+    // ── Indexability ─────────────────────────────────────────────────────────
+    $statusIndexable   = ($fetch['status'] >= 200 && $fetch['status'] < 300);
+    $finalUrlDiffers   = ($fetch['final_url'] !== '' && rtrim($fetch['final_url'], '/') !== rtrim($url, '/'));
+    $canonicalStatus   = 'Missing Canonical';
+    if ($canonical !== '') {
+        $normCanon = rtrim($canonical, '/');
+        $normUrl   = rtrim($url, '/');
+        $canonicalStatus = ($normCanon === $normUrl) ? 'Self Canonical' : 'Canonical To Different URL';
+    }
+    $indexabilityStatus = 'Indexable';
+    $indexabilityReason = '';
+    if ($noindex) {
+        $indexabilityStatus = 'Not Indexable';
+        $indexabilityReason = 'noindex directive found';
+    } elseif (!$statusIndexable) {
+        $indexabilityStatus = 'Not Indexable';
+        $indexabilityReason = 'HTTP status ' . $fetch['status'];
+    } elseif ($canonicalStatus === 'Canonical To Different URL') {
+        $indexabilityStatus = 'Maybe';
+        $indexabilityReason = 'Canonical points to a different URL';
     }
 
     $discoveredLinks         = leAuditExtractLinks($html, $url, $config);
@@ -663,7 +795,35 @@ function leAuditCheckUrl(string $url, array $config, array $options = []): array
         'images_without_alt'      => $imgsNoAlt,
         'issues'                  => $issues,
         'warnings'                => $warnings,
-        'scanned_at'                => gmdate('c'),
+        'scanned_at'              => gmdate('c'),
+        // Performance diagnostics
+        'html_size_kb'            => $htmlSizeKb,
+        'script_count'            => $scriptCount,
+        'stylesheet_count'        => $stylesheetCount,
+        'image_count'             => $imageCount,
+        'inline_script_count'     => $inlineScriptCount,
+        'third_party_domain_count'=> $thirdPartyDomainCount,
+        'slow_tier'               => $slowTier,
+        // Content quality
+        'word_count'              => $wordCount,
+        'thin_content'            => $thinContent,
+        'h2_count'                => $h2Count,
+        'h3_count'                => $h3Count,
+        'paragraph_count'         => $paragraphCount,
+        // Structured data
+        'json_ld_count'           => $jsonLdCount,
+        'invalid_json_ld_count'   => $invalidJsonLdCount,
+        'schema_types'            => $schemaTypes,
+        // Page type and importance
+        'page_type'               => $pageType,
+        'is_important'            => $isImportant,
+        'importance_score'        => $importanceScore,
+        // Indexability
+        'indexability_status'     => $indexabilityStatus,
+        'indexability_reason'     => $indexabilityReason,
+        'canonical_status'        => $canonicalStatus,
+        'final_url_differs'       => $finalUrlDiffers,
+        // Links (populated below)
         'discovered_links'          => $discoveredLinks,
         'discovered_external_links' => $discoveredExternalLinks,
         'discovered_images'         => $discoveredImages,
@@ -993,6 +1153,370 @@ function leAuditExportCsv(array $results): void
     exit;
 }
 
+// ── Page Type Detection ──────────────────────────────────────────────────────
+function leAuditDetectPageType(string $url, string $title, string $h1): string
+{
+    $u = strtolower($url);
+
+    // Homepage
+    if (preg_match('#^https?://[^/]+(/?|/index\.php/?)(\?.*)?$#i', $url)) {
+        return 'Homepage';
+    }
+
+    // Utility/system
+    if (preg_match('#(print=|tmpl=component|format=feed|/component/|/administrator/)#i', $url)) {
+        return 'Utility Page';
+    }
+
+    // Account/checkout
+    if (preg_match('#/(account|login|register|checkout|cart|my-profile|membership/join)#i', $url)) {
+        return 'Checkout Account Page';
+    }
+
+    // Membership
+    if (preg_match('#/(membership|subscribe|subscription|premium|upgrade)#i', $url)) {
+        return 'Membership Page';
+    }
+
+    // Winning numbers (check before generic lottery)
+    if (preg_match('#/(winning-numbers|lottery-results|results|past-results|winning-result)#i', $url)) {
+        return 'Winning Numbers Page';
+    }
+
+    // Prediction / tool
+    if (preg_match('#/(prediction|predictions|predict|hot-numbers|frequency|due-numbers)#i', $url)) {
+        return 'Prediction Tool Page';
+    }
+
+    // Analysis / tool / scanner
+    if (preg_match('#/(analysis|analyzer|analyser|tool|scanner|calculator|strategy|guide|how-to-win)#i', $url)) {
+        return 'Analysis Tool Page';
+    }
+
+    // Archive
+    if (preg_match('#/(archive|archives)/|/\d{4}/\d{2}/#i', $url)) {
+        return 'Archive Page';
+    }
+
+    // Blog / article / news
+    if (preg_match('#/(blog|article|articles|news|post|posts)/|/news-#i', $url)) {
+        return 'Blog Article';
+    }
+
+    // State lottery pages (powerball, mega millions, state lotteries)
+    if (preg_match('#/(powerball|mega-millions|megamillions|pick-3|pick-4|pick3|pick4|daily-3|daily-4|fantasy-5|fantasy5|cash4life|lotto|cash-pop|lucky-for-life|all-or-nothing|keno|hot-lotto|classic-lotto|florida-lottery|texas-lottery|california-lottery|new-york-lottery|illinois-lottery|georgia-lottery|ohio-lottery|pennsylvania-lottery|michigan-lottery|new-jersey-lottery|north-carolina-lottery|virginia-lottery|indiana-lottery|tennessee-lottery|colorado-lottery|washington-lottery|maryland-lottery|iowa-lottery|kansas-lottery|missouri-lottery|multi-state|multistate)#i', $url)) {
+        return 'State Lottery Page';
+    }
+
+    // Fallback on title / h1
+    $lowerTitle = strtolower($title . ' ' . $h1);
+    if (strpos($lowerTitle, 'winning numbers') !== false || strpos($lowerTitle, 'lottery results') !== false) {
+        return 'Winning Numbers Page';
+    }
+    if (strpos($lowerTitle, 'prediction') !== false || strpos($lowerTitle, 'hot numbers') !== false) {
+        return 'Prediction Tool Page';
+    }
+    if (strpos($lowerTitle, 'powerball') !== false || strpos($lowerTitle, 'mega millions') !== false || strpos($lowerTitle, 'lottery') !== false) {
+        return 'State Lottery Page';
+    }
+
+    return 'Unknown';
+}
+
+// ── Importance Detection ─────────────────────────────────────────────────────
+function leAuditDetectImportance(string $url, string $pageType): array
+{
+    $scoreMap = [
+        'Homepage'             => 100,
+        'State Lottery Page'   => 90,
+        'Prediction Tool Page' => 88,
+        'Winning Numbers Page' => 85,
+        'Membership Page'      => 80,
+        'Analysis Tool Page'   => 75,
+        'Checkout Account Page'=> 60,
+        'Blog Article'         => 40,
+        'Unknown'              => 35,
+        'Archive Page'         => 20,
+        'Utility Page'         => 5,
+    ];
+    $score      = $scoreMap[$pageType] ?? 35;
+    $isImportant = $score >= 60;
+    return ['is_important' => $isImportant, 'importance_score' => $score];
+}
+
+// ── Site Health Scoring ──────────────────────────────────────────────────────
+function leAuditComputeHealthScores(array $results, array $summary): array
+{
+    $total = max(1, (int) $summary['total_scanned']);
+
+    $seo           = 100;
+    $crawlability  = 100;
+    $performance   = 100;
+    $accessibility = 100;
+    $indexability  = 100;
+    $brokenLink    = 100;
+
+    $seo          -= min(40, (int) $summary['missing_titles']       * 2);
+    $seo          -= min(20, (int) $summary['missing_descriptions']  * 1);
+    $seo          -= min(10, (int) $summary['missing_canonicals']    * 1);
+    $crawlability -= min(40, (int) $summary['not_found_pages']       * 3);
+    $crawlability -= min(30, (int) $summary['server_error_pages']    * 5);
+    $performance  -= min(30, (int) $summary['slow_pages']            * 2);
+    $accessibility-= min(40, (int) $summary['images_missing_alt']    * 2);
+    $indexability -= min(40, (int) $summary['noindex_pages']         * 3);
+    $brokenLink   -= min(50, (int) $summary['broken_links_total']    * 2);
+
+    $seo          = max(0, $seo);
+    $crawlability = max(0, $crawlability);
+    $performance  = max(0, $performance);
+    $accessibility= max(0, $accessibility);
+    $indexability = max(0, $indexability);
+    $brokenLink   = max(0, $brokenLink);
+    $overall      = (int) round(($seo + $crawlability + $performance + $accessibility + $indexability + $brokenLink) / 6);
+
+    return [
+        'overall'       => $overall,
+        'seo'           => $seo,
+        'crawlability'  => $crawlability,
+        'performance'   => $performance,
+        'accessibility' => $accessibility,
+        'indexability'  => $indexability,
+        'broken_link'   => $brokenLink,
+    ];
+}
+
+// ── Issue Priority Engine ────────────────────────────────────────────────────
+function leAuditBuildPriorityIssues(array $results, array $config): array
+{
+    $issues = [];
+    $items  = $results['items']        ?? [];
+    $broken = $results['broken_links'] ?? [];
+
+    $fixMap = [
+        'SERVER_ERROR'         => ['cat' => 'Crawlability',   'sev' => 'Critical', 'sc' => 100, 'why' => 'A server error prevents crawling and indexing. Fix it immediately.',                                        'fix' => 'Check server error logs and resolve the underlying PHP or database error.'],
+        'PAGE_404'             => ['cat' => 'Crawlability',   'sev' => 'Critical', 'sc' => 95,  'why' => '404 pages waste crawl budget and break user experience.',                                                    'fix' => 'Set up a 301 redirect to the correct URL or restore the missing page.'],
+        'NOINDEX_PAGE'         => ['cat' => 'Indexability',   'sev' => 'Critical', 'sc' => 95,  'why' => 'A noindex directive prevents this page from appearing in search results.',                                   'fix' => 'Remove the noindex directive if this page should rank in search engines.'],
+        'BROKEN_INTERNAL_LINK' => ['cat' => 'Broken Link',    'sev' => 'Critical', 'sc' => 90,  'why' => 'Broken internal links waste crawl equity and frustrate users.',                                              'fix' => 'Edit the source page and replace or remove the broken internal link.'],
+        'MISSING_TITLE'        => ['cat' => 'SEO',            'sev' => 'High',     'sc' => 85,  'why' => 'Search engines and users rely on the title to understand the page.',                                         'fix' => 'Add a unique descriptive title between 50 and 70 characters.'],
+        'MISSING_H1'           => ['cat' => 'SEO',            'sev' => 'High',     'sc' => 80,  'why' => 'The H1 is the primary on-page SEO heading signal.',                                                          'fix' => 'Add a single H1 tag that clearly states the main topic of the page.'],
+        'DUPLICATE_TITLE'      => ['cat' => 'SEO',            'sev' => 'High',     'sc' => 75,  'why' => 'Duplicate titles make it hard for search engines to distinguish page purpose.',                              'fix' => 'Rewrite each title to include the specific game, state, or unique page value.'],
+        'MISSING_META_DESC'    => ['cat' => 'SEO',            'sev' => 'Medium',   'sc' => 70,  'why' => 'Weak snippets reduce search click-through rates.',                                                           'fix' => 'Add a unique 50 to 165 character description that explains the value of the page.'],
+        'CANONICAL_MISMATCH'   => ['cat' => 'SEO',            'sev' => 'Medium',   'sc' => 65,  'why' => 'Canonical pointing to a different URL can consolidate signals to the wrong page.',                           'fix' => 'Verify the canonical is intentional. If not, change it to a self-referencing canonical.'],
+        'SLOW_PAGE_VERY'       => ['cat' => 'Performance',    'sev' => 'Medium',   'sc' => 60,  'why' => 'Very slow pages reduce conversions, engagement, and search ranking.',                                        'fix' => 'Review large images, third-party scripts, server caching, and response times.'],
+        'BROKEN_IMAGE'         => ['cat' => 'Broken Link',    'sev' => 'Medium',   'sc' => 55,  'why' => 'Missing images break page layout and harm user experience.',                                                  'fix' => 'Replace or remove the broken image reference on the source page.'],
+        'BROKEN_EXTERNAL_LINK' => ['cat' => 'Broken Link',    'sev' => 'Medium',   'sc' => 50,  'why' => 'Broken external links reduce trust and may affect crawl quality.',                                           'fix' => 'Remove or update the external link on the source page.'],
+        'MISSING_ALT_TEXT'     => ['cat' => 'Accessibility',  'sev' => 'Medium',   'sc' => 45,  'why' => 'Missing alt text hurts accessibility and image SEO.',                                                        'fix' => 'Add short descriptive alt text to all content-bearing images.'],
+        'SLOW_PAGE'            => ['cat' => 'Performance',    'sev' => 'Low',      'sc' => 45,  'why' => 'Slow pages increase bounce rates and may reduce search ranking.',                                             'fix' => 'Review page assets, enable caching, and check server response time.'],
+        'THIN_CONTENT'         => ['cat' => 'SEO',            'sev' => 'Low',      'sc' => 40,  'why' => 'Thin content pages rarely rank well and may trigger quality penalties.',                                      'fix' => 'Expand the page with unique, relevant, and useful content above 250 words.'],
+        'MISSING_CANONICAL'    => ['cat' => 'SEO',            'sev' => 'Low',      'sc' => 40,  'why' => 'Missing canonical allows duplicate content issues.',                                                          'fix' => 'Add a self-referencing canonical link tag in the head of the page.'],
+        'INVALID_JSON_LD'      => ['cat' => 'SEO',            'sev' => 'Low',      'sc' => 35,  'why' => 'Invalid structured data is ignored by search engines and may trigger Search Console errors.',               'fix' => 'Fix the JSON-LD syntax error. Use the Google Rich Results Test to validate.'],
+        'TITLE_TOO_LONG'       => ['cat' => 'SEO',            'sev' => 'Low',      'sc' => 30,  'why' => 'Titles over 70 characters get truncated in search results.',                                                  'fix' => 'Shorten the title to 50-70 characters.'],
+        'TITLE_TOO_SHORT'      => ['cat' => 'SEO',            'sev' => 'Low',      'sc' => 30,  'why' => 'Very short titles give search engines little information about the page.',                                    'fix' => 'Expand the title to 50-70 characters with descriptive keywords.'],
+    ];
+
+    foreach ($items as $item) {
+        $u          = $item['url']          ?? '';
+        $status     = (int) ($item['status'] ?? 0);
+        $importance = (int) ($item['importance_score'] ?? 35);
+        $boost      = (int) round($importance / 20); // 0-5 points extra weight
+
+        if ($status >= 500) {
+            $d = $fixMap['SERVER_ERROR'];
+            $issues[] = ['priority_score' => $d['sc'] + $boost, 'severity' => $d['sev'], 'issue_category' => $d['cat'], 'issue_code' => 'SERVER_ERROR', 'affected_url' => $u, 'source_page' => $item['source_page'] ?? '', 'evidence' => 'HTTP ' . $status, 'why_it_matters' => $d['why'], 'recommended_fix' => $d['fix']];
+        } elseif ($status === 404) {
+            $d = $fixMap['PAGE_404'];
+            $issues[] = ['priority_score' => $d['sc'] + $boost, 'severity' => $d['sev'], 'issue_category' => $d['cat'], 'issue_code' => 'PAGE_404', 'affected_url' => $u, 'source_page' => $item['source_page'] ?? '', 'evidence' => 'HTTP 404', 'why_it_matters' => $d['why'], 'recommended_fix' => $d['fix']];
+        }
+
+        if (!empty($item['noindex'])) {
+            $d = $fixMap['NOINDEX_PAGE'];
+            $issues[] = ['priority_score' => $d['sc'] + $boost, 'severity' => $d['sev'], 'issue_category' => $d['cat'], 'issue_code' => 'NOINDEX_PAGE', 'affected_url' => $u, 'source_page' => '', 'evidence' => 'noindex directive detected', 'why_it_matters' => $d['why'], 'recommended_fix' => $d['fix']];
+        }
+        if (($item['title'] ?? '') === '' && $status < 400 && $status > 0) {
+            $d = $fixMap['MISSING_TITLE'];
+            $issues[] = ['priority_score' => $d['sc'] + $boost, 'severity' => $d['sev'], 'issue_category' => $d['cat'], 'issue_code' => 'MISSING_TITLE', 'affected_url' => $u, 'source_page' => '', 'evidence' => '', 'why_it_matters' => $d['why'], 'recommended_fix' => $d['fix']];
+        }
+        if (($item['h1_count'] ?? 0) === 0 && $status < 400 && $status > 0) {
+            $d = $fixMap['MISSING_H1'];
+            $issues[] = ['priority_score' => $d['sc'] + $boost, 'severity' => $d['sev'], 'issue_category' => $d['cat'], 'issue_code' => 'MISSING_H1', 'affected_url' => $u, 'source_page' => '', 'evidence' => '', 'why_it_matters' => $d['why'], 'recommended_fix' => $d['fix']];
+        }
+        if (($item['meta_description'] ?? '') === '' && $status < 400 && $status > 0) {
+            $d = $fixMap['MISSING_META_DESC'];
+            $issues[] = ['priority_score' => $d['sc'] + $boost, 'severity' => $d['sev'], 'issue_category' => $d['cat'], 'issue_code' => 'MISSING_META_DESC', 'affected_url' => $u, 'source_page' => '', 'evidence' => '', 'why_it_matters' => $d['why'], 'recommended_fix' => $d['fix']];
+        }
+        if (($item['canonical'] ?? '') === '' && $status < 400 && $status > 0) {
+            $d = $fixMap['MISSING_CANONICAL'];
+            $issues[] = ['priority_score' => $d['sc'], 'severity' => $d['sev'], 'issue_category' => $d['cat'], 'issue_code' => 'MISSING_CANONICAL', 'affected_url' => $u, 'source_page' => '', 'evidence' => '', 'why_it_matters' => $d['why'], 'recommended_fix' => $d['fix']];
+        }
+        if (($item['canonical_status'] ?? '') === 'Canonical To Different URL') {
+            $d = $fixMap['CANONICAL_MISMATCH'];
+            $issues[] = ['priority_score' => $d['sc'] + $boost, 'severity' => $d['sev'], 'issue_category' => $d['cat'], 'issue_code' => 'CANONICAL_MISMATCH', 'affected_url' => $u, 'source_page' => '', 'evidence' => 'Canonical: ' . ($item['canonical'] ?? ''), 'why_it_matters' => $d['why'], 'recommended_fix' => $d['fix']];
+        }
+        $slowTier = $item['slow_tier'] ?? '';
+        if ($slowTier === 'Very Slow') {
+            $d = $fixMap['SLOW_PAGE_VERY'];
+            $issues[] = ['priority_score' => $d['sc'], 'severity' => $d['sev'], 'issue_category' => $d['cat'], 'issue_code' => 'SLOW_PAGE_VERY', 'affected_url' => $u, 'source_page' => '', 'evidence' => ($item['load_time_ms'] ?? 0) . ' ms', 'why_it_matters' => $d['why'], 'recommended_fix' => $d['fix']];
+        } elseif ($slowTier === 'Slow') {
+            $d = $fixMap['SLOW_PAGE'];
+            $issues[] = ['priority_score' => $d['sc'], 'severity' => $d['sev'], 'issue_category' => $d['cat'], 'issue_code' => 'SLOW_PAGE', 'affected_url' => $u, 'source_page' => '', 'evidence' => ($item['load_time_ms'] ?? 0) . ' ms', 'why_it_matters' => $d['why'], 'recommended_fix' => $d['fix']];
+        }
+        if (!empty($item['thin_content'])) {
+            $d = $fixMap['THIN_CONTENT'];
+            $issues[] = ['priority_score' => $d['sc'], 'severity' => $d['sev'], 'issue_category' => $d['cat'], 'issue_code' => 'THIN_CONTENT', 'affected_url' => $u, 'source_page' => '', 'evidence' => ($item['word_count'] ?? 0) . ' words', 'why_it_matters' => $d['why'], 'recommended_fix' => $d['fix']];
+        }
+        if (!empty($item['images_without_alt']) && (int) $item['images_without_alt'] > 0) {
+            $d = $fixMap['MISSING_ALT_TEXT'];
+            $issues[] = ['priority_score' => $d['sc'], 'severity' => $d['sev'], 'issue_category' => $d['cat'], 'issue_code' => 'MISSING_ALT_TEXT', 'affected_url' => $u, 'source_page' => '', 'evidence' => $item['images_without_alt'] . ' image(s)', 'why_it_matters' => $d['why'], 'recommended_fix' => $d['fix']];
+        }
+        if (!empty($item['invalid_json_ld_count']) && (int) $item['invalid_json_ld_count'] > 0) {
+            $d = $fixMap['INVALID_JSON_LD'];
+            $issues[] = ['priority_score' => $d['sc'], 'severity' => $d['sev'], 'issue_category' => $d['cat'], 'issue_code' => 'INVALID_JSON_LD', 'affected_url' => $u, 'source_page' => '', 'evidence' => $item['invalid_json_ld_count'] . ' invalid block(s)', 'why_it_matters' => $d['why'], 'recommended_fix' => $d['fix']];
+        }
+        if ((int) ($item['title_length'] ?? 0) > 70 && ($item['title'] ?? '') !== '') {
+            $d = $fixMap['TITLE_TOO_LONG'];
+            $issues[] = ['priority_score' => $d['sc'], 'severity' => $d['sev'], 'issue_category' => $d['cat'], 'issue_code' => 'TITLE_TOO_LONG', 'affected_url' => $u, 'source_page' => '', 'evidence' => $item['title_length'] . ' chars', 'why_it_matters' => $d['why'], 'recommended_fix' => $d['fix']];
+        }
+    }
+
+    // Broken links
+    foreach ($broken as $bl) {
+        $lt = $bl['link_type'] ?? 'internal';
+        if ($lt === 'internal') {
+            $d = $fixMap['BROKEN_INTERNAL_LINK'];
+            $code = 'BROKEN_INTERNAL_LINK';
+        } elseif ($lt === 'image') {
+            $d = $fixMap['BROKEN_IMAGE'];
+            $code = 'BROKEN_IMAGE';
+        } else {
+            $d = $fixMap['BROKEN_EXTERNAL_LINK'];
+            $code = 'BROKEN_EXTERNAL_LINK';
+        }
+        $issues[] = ['priority_score' => $d['sc'], 'severity' => $d['sev'], 'issue_category' => $d['cat'], 'issue_code' => $code, 'affected_url' => $bl['broken_url'] ?? '', 'source_page' => $bl['source_page'] ?? '', 'evidence' => 'HTTP ' . ($bl['status'] ?? 0), 'why_it_matters' => $d['why'], 'recommended_fix' => $d['fix']];
+    }
+
+    // Duplicate titles
+    $titleMap = [];
+    foreach ($items as $item) {
+        $t = $item['title'] ?? '';
+        if ($t !== '' && (int)($item['status'] ?? 0) < 400) {
+            $titleMap[$t][] = $item['url'] ?? '';
+        }
+    }
+    $d = $fixMap['DUPLICATE_TITLE'];
+    foreach ($titleMap as $t => $urls) {
+        if (count($urls) > 1) {
+            foreach ($urls as $dupUrl) {
+                $issues[] = ['priority_score' => $d['sc'], 'severity' => $d['sev'], 'issue_category' => $d['cat'], 'issue_code' => 'DUPLICATE_TITLE', 'affected_url' => $dupUrl, 'source_page' => '', 'evidence' => count($urls) . ' pages share title: ' . mb_substr($t, 0, 60, 'UTF-8'), 'why_it_matters' => $d['why'], 'recommended_fix' => $d['fix']];
+            }
+        }
+    }
+
+    usort($issues, function ($a, $b) { return $b['priority_score'] - $a['priority_score']; });
+    return array_slice($issues, 0, 50);
+}
+
+// ── Additional Export Functions ───────────────────────────────────────────────
+function leAuditStartExport(string $filename, string $contentType): void
+{
+    if (!headers_sent()) {
+        while (ob_get_level() > 0) { ob_end_clean(); }
+    }
+    header('Content-Type: ' . $contentType . '; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+}
+
+function leAuditExportBrokenLinksCsv(array $results): void
+{
+    leAuditStartExport('lottoexpert-broken-links-' . gmdate('Ymd-His') . '.csv', 'text/csv');
+    $fp = fopen('php://output', 'w');
+    fwrite($fp, "\xEF\xBB\xBF");
+    fputcsv($fp, ['Type', 'Source Page', 'Broken URL', 'HTTP Status', 'Link Text', 'Raw Href', 'Excerpt', 'HTML Snippet', 'Detected At', 'Occurrences']);
+    foreach ($results['broken_links'] ?? [] as $bl) {
+        fputcsv($fp, [
+            $bl['link_type']      ?? '',
+            $bl['source_page']    ?? '',
+            $bl['broken_url']     ?? '',
+            $bl['status']         ?? '',
+            $bl['link_text']      ?? '',
+            $bl['raw_href']       ?? '',
+            $bl['source_excerpt'] ?? '',
+            $bl['html_snippet']   ?? '',
+            $bl['found_at']       ?? '',
+            $bl['occurrence_count'] ?? 1,
+        ]);
+    }
+    fclose($fp);
+    exit;
+}
+
+function leAuditExportSeoIssuesCsv(array $results): void
+{
+    leAuditStartExport('lottoexpert-seo-issues-' . gmdate('Ymd-His') . '.csv', 'text/csv');
+    $fp = fopen('php://output', 'w');
+    fwrite($fp, "\xEF\xBB\xBF");
+    fputcsv($fp, ['URL', 'Status', 'Page Type', 'Important', 'Title', 'Title Length', 'Meta Description', 'Desc Length', 'Canonical', 'Canonical Status', 'H1 Text', 'H1 Count', 'Noindex', 'Indexability', 'Issues', 'Warnings', 'Load MS', 'Word Count', 'Thin Content', 'Schema Types', 'Scanned At']);
+    foreach ($results['items'] ?? [] as $item) {
+        fputcsv($fp, [
+            $item['url']                  ?? '',
+            $item['status']               ?? '',
+            $item['page_type']            ?? '',
+            !empty($item['is_important']) ? 'Yes' : 'No',
+            $item['title']                ?? '',
+            $item['title_length']         ?? '',
+            $item['meta_description']     ?? '',
+            $item['meta_description_length'] ?? '',
+            $item['canonical']            ?? '',
+            $item['canonical_status']     ?? '',
+            $item['h1_text']              ?? '',
+            $item['h1_count']             ?? 0,
+            !empty($item['noindex'])      ? 'Yes' : 'No',
+            $item['indexability_status']  ?? '',
+            implode(' | ', $item['issues']   ?? []),
+            implode(' | ', $item['warnings'] ?? []),
+            $item['load_time_ms']         ?? 0,
+            $item['word_count']           ?? 0,
+            !empty($item['thin_content']) ? 'Yes' : 'No',
+            implode(', ', $item['schema_types'] ?? []),
+            $item['scanned_at']           ?? '',
+        ]);
+    }
+    fclose($fp);
+    exit;
+}
+
+function leAuditExportTopFixesCsv(array $priorityIssues): void
+{
+    leAuditStartExport('lottoexpert-top-fixes-' . gmdate('Ymd-His') . '.csv', 'text/csv');
+    $fp = fopen('php://output', 'w');
+    fwrite($fp, "\xEF\xBB\xBF");
+    fputcsv($fp, ['Priority Score', 'Severity', 'Category', 'Issue Code', 'Affected URL', 'Source Page', 'Evidence', 'Why It Matters', 'Recommended Fix']);
+    foreach ($priorityIssues as $issue) {
+        fputcsv($fp, [
+            $issue['priority_score']  ?? '',
+            $issue['severity']        ?? '',
+            $issue['issue_category']  ?? '',
+            $issue['issue_code']      ?? '',
+            $issue['affected_url']    ?? '',
+            $issue['source_page']     ?? '',
+            $issue['evidence']        ?? '',
+            $issue['why_it_matters']  ?? '',
+            $issue['recommended_fix'] ?? '',
+        ]);
+    }
+    fclose($fp);
+    exit;
+}
+
+function leAuditExportJson(array $results): void
+{
+    leAuditStartExport('lottoexpert-audit-' . gmdate('Ymd-His') . '.json', 'application/json');
+    echo json_encode($results, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
 // ── Handle actions ───────────────────────────────────────────────────────────
 [$queue, $results] = leAuditInitState($config);
 
@@ -1049,7 +1573,7 @@ if ($action !== '' && !Session::checkToken('post')) {
     if (isset($queue['ext_pending']))      { $queue['ext_pending']      = []; }
     if (isset($queue['int_link_pending'])) { $queue['int_link_pending'] = []; }
     leAuditSessionSet('le_queue', $queue);
-    $message = '? Scan stopped. All pending URLs have been cleared. Results collected so far are preserved. Click Reset Audit to start a completely fresh scan.';
+    $message = 'Scan stopped. All pending URLs have been cleared. Results collected so far are preserved. Click Reset Audit to start a completely fresh scan.';
 } elseif ($action === 'discover_sitemap') {
     $sitemapResult = leAuditLoadSitemapUrls($config);
     $sitemapUrls   = $sitemapResult['urls'];
@@ -1177,16 +1701,24 @@ if ($action !== '' && !Session::checkToken('post')) {
             if ($isBroken) {
                 $referrer = $queue['referrers'][$normalized] ?? '';
                 if ($referrer !== '') {
-                    if (!isset($results['broken_links'])) {
-                        $results['broken_links'] = [];
+                    if (!isset($results['broken_links'])) { $results['broken_links'] = []; }
+                    $blKey = md5($referrer . '|' . $normalized . '|internal');
+                    if (isset($results['broken_links'][$blKey])) {
+                        $results['broken_links'][$blKey]['occurrence_count']++;
+                        $results['broken_links'][$blKey]['last_seen_at'] = gmdate('c');
+                    } else {
+                        $results['broken_links'][$blKey] = leAuditMergeBrokenContext([
+                            'source_page'      => $referrer,
+                            'broken_url'       => $normalized,
+                            'status'           => $result['status'],
+                            'found_at'         => gmdate('c'),
+                            'first_seen_at'    => gmdate('c'),
+                            'last_seen_at'     => gmdate('c'),
+                            'occurrence_count' => 1,
+                            'link_type'        => 'internal',
+                            'check_method'     => 'crawl',
+                        ], $queue['link_contexts'][$normalized] ?? []);
                     }
-                    $results['broken_links'][] = leAuditMergeBrokenContext([
-                        'source_page' => $referrer,
-                        'broken_url'  => $normalized,
-                        'status'      => $result['status'],
-                        'found_at'    => gmdate('c'),
-                        'link_type'   => 'internal',
-                    ], $queue['link_contexts'][$normalized] ?? []);
                 }
             }
         }
@@ -1197,24 +1729,34 @@ if ($action !== '' && !Session::checkToken('post')) {
     // Check external links and images (up to 10 per batch via fast HEAD requests)
     $extChecked = 0;
     while ($extChecked < 10 && !empty($queue['ext_pending'])) {
-        $extUrl    = array_shift($queue['ext_pending']);
-        $extStatus = leAuditHeadCheckUrl($extUrl);
-        $isBroken  = ($extStatus === 0 || $extStatus === 404
-                      || ($extStatus >= 400 && $extStatus < 600));
+        $extUrl       = array_shift($queue['ext_pending']);
+        $extResult    = leAuditHeadCheckUrl($extUrl);
+        $extStatus    = $extResult['status'];
+        $isBroken     = ($extStatus === 0 || $extStatus === 404
+                         || ($extStatus >= 400 && $extStatus < 600));
         if ($isBroken) {
             $extReferrer = $queue['ext_referrers'][$extUrl] ?? '';
             if ($extReferrer !== '') {
-                if (!isset($results['broken_links'])) {
-                    $results['broken_links'] = [];
+                if (!isset($results['broken_links'])) { $results['broken_links'] = []; }
+                $isImage  = (bool) preg_match('#\.(jpg|jpeg|png|gif|webp|svg|ico|bmp)(\?.*)?$#i', $extUrl);
+                $linkType = $isImage ? 'image' : 'external';
+                $blKey    = md5($extReferrer . '|' . $extUrl . '|' . $linkType);
+                if (isset($results['broken_links'][$blKey])) {
+                    $results['broken_links'][$blKey]['occurrence_count']++;
+                    $results['broken_links'][$blKey]['last_seen_at'] = gmdate('c');
+                } else {
+                    $results['broken_links'][$blKey] = leAuditMergeBrokenContext([
+                        'source_page'      => $extReferrer,
+                        'broken_url'       => $extUrl,
+                        'status'           => $extStatus,
+                        'found_at'         => gmdate('c'),
+                        'first_seen_at'    => gmdate('c'),
+                        'last_seen_at'     => gmdate('c'),
+                        'occurrence_count' => 1,
+                        'link_type'        => $linkType,
+                        'check_method'     => $extResult['method'],
+                    ], $queue['ext_contexts'][$extUrl] ?? []);
                 }
-                $isImage = (bool) preg_match('#\.(jpg|jpeg|png|gif|webp|svg|ico|bmp)(\?.*)?$#i', $extUrl);
-                $results['broken_links'][] = leAuditMergeBrokenContext([
-                    'source_page' => $extReferrer,
-                    'broken_url'  => $extUrl,
-                    'status'      => $extStatus,
-                    'found_at'    => gmdate('c'),
-                    'link_type'   => $isImage ? 'image' : 'external',
-                ], $queue['ext_contexts'][$extUrl] ?? []);
             }
         }
         $extChecked++;
@@ -1231,25 +1773,44 @@ if ($action !== '' && !Session::checkToken('post')) {
             continue;
         }
 
-        $intLinkStatus = leAuditHeadCheckUrl($intLinkUrl);
+        $intLinkResult = leAuditHeadCheckUrl($intLinkUrl);
+        $intLinkStatus = $intLinkResult['status'];
         $isBroken      = ($intLinkStatus === 0 || $intLinkStatus === 404
                           || ($intLinkStatus >= 400 && $intLinkStatus < 600));
         if ($isBroken) {
             $intLinkReferrer = $queue['int_link_referrers'][$intLinkUrl] ?? '';
             if ($intLinkReferrer !== '') {
-                if (!isset($results['broken_links'])) {
-                    $results['broken_links'] = [];
+                if (!isset($results['broken_links'])) { $results['broken_links'] = []; }
+                $blKey = md5($intLinkReferrer . '|' . $intLinkUrl . '|internal');
+                if (isset($results['broken_links'][$blKey])) {
+                    $results['broken_links'][$blKey]['occurrence_count']++;
+                    $results['broken_links'][$blKey]['last_seen_at'] = gmdate('c');
+                } else {
+                    $results['broken_links'][$blKey] = leAuditMergeBrokenContext([
+                        'source_page'      => $intLinkReferrer,
+                        'broken_url'       => $intLinkUrl,
+                        'status'           => $intLinkStatus,
+                        'found_at'         => gmdate('c'),
+                        'first_seen_at'    => gmdate('c'),
+                        'last_seen_at'     => gmdate('c'),
+                        'occurrence_count' => 1,
+                        'link_type'        => 'internal',
+                        'check_method'     => $intLinkResult['method'],
+                    ], $queue['int_link_contexts'][$intLinkUrl] ?? []);
                 }
-                $results['broken_links'][] = leAuditMergeBrokenContext([
-                    'source_page' => $intLinkReferrer,
-                    'broken_url'  => $intLinkUrl,
-                    'status'      => $intLinkStatus,
-                    'found_at'    => gmdate('c'),
-                    'link_type'   => 'internal',
-                ], $queue['int_link_contexts'][$intLinkUrl] ?? []);
             }
         }
         $intLinkChecked++;
+    }
+
+    // Session safety caps
+    $maxItems = (int) ($config['max_items_stored']        ?? 5000);
+    $maxBL    = (int) ($config['max_broken_links_stored'] ?? 1000);
+    if (count($results['items']) > $maxItems) {
+        $results['items'] = array_slice($results['items'], -$maxItems, null, true);
+    }
+    if (!empty($results['broken_links']) && count($results['broken_links']) > $maxBL) {
+        $results['broken_links'] = array_slice($results['broken_links'], -$maxBL, null, true);
     }
 
     $results['summary']    = leAuditBuildSummary($results);
@@ -1304,6 +1865,16 @@ if ($action !== '' && !Session::checkToken('post')) {
 } elseif ($action === 'export_csv') {
     $results['summary'] = leAuditBuildSummary($results);
     leAuditExportCsv($results); // streams CSV and exits
+} elseif ($action === 'export_broken_links_csv') {
+    leAuditExportBrokenLinksCsv($results);
+} elseif ($action === 'export_seo_csv') {
+    leAuditExportSeoIssuesCsv($results);
+} elseif ($action === 'export_top_fixes_csv') {
+    $results['summary'] = leAuditBuildSummary($results);
+    leAuditExportTopFixesCsv(leAuditBuildPriorityIssues($results, $config));
+} elseif ($action === 'export_json') {
+    $results['summary'] = leAuditBuildSummary($results);
+    leAuditExportJson($results);
 }
 
 // ── Reload state for display ─────────────────────────────────────────────────
@@ -1315,6 +1886,47 @@ $pendingCount = !empty($queue['pending']) ? count($queue['pending']) : 0;
 $seenCount    = !empty($queue['seen'])    ? count($queue['seen'])    : 0;
 $scannedCount = !empty($queue['scanned']) ? count($queue['scanned']) : 0;
 $progressPct  = ($seenCount > 0) ? min(100, (int) round(($scannedCount / $seenCount) * 100)) : 0;
+
+// ── Health scores ─────────────────────────────────────────────────────────────
+$healthScores   = leAuditComputeHealthScores($results, $summary);
+$priorityIssues = leAuditBuildPriorityIssues($results, $config);
+
+// ── Duplicate metadata ────────────────────────────────────────────────────────
+$dupTitleGroups = [];
+$dupDescGroups  = [];
+if (!empty($results['items'])) {
+    $titleMap2 = []; $descMap2 = [];
+    foreach ($results['items'] as $item) {
+        if ((int)($item['status'] ?? 0) >= 400) { continue; }
+        $t = $item['title']            ?? '';
+        $d = $item['meta_description'] ?? '';
+        if ($t !== '') { $titleMap2[$t][] = $item['url'] ?? ''; }
+        if ($d !== '') { $descMap2[$d][]  = $item['url'] ?? ''; }
+    }
+    foreach ($titleMap2 as $t => $urls) { if (count($urls) > 1) { $dupTitleGroups[$t] = $urls; } }
+    foreach ($descMap2  as $d => $urls) { if (count($urls) > 1) { $dupDescGroups[$d]  = $urls; } }
+}
+
+// ── Performance / content / schema data ───────────────────────────────────────
+$slowDiagPages      = [];
+$invalidSchemaPages = [];
+$noSchemaPages      = [];
+$thinContentPages   = [];
+if (!empty($results['items'])) {
+    foreach ($results['items'] as $item) {
+        if ((int)($item['status'] ?? 0) >= 400) { continue; }
+        $st = $item['slow_tier'] ?? '';
+        if ($st === 'Slow' || $st === 'Very Slow') { $slowDiagPages[] = $item; }
+        if ((int)($item['invalid_json_ld_count'] ?? 0) > 0) { $invalidSchemaPages[] = $item; }
+        elseif ((int)($item['json_ld_count'] ?? 0) === 0)   { $noSchemaPages[]      = $item; }
+        if (!empty($item['thin_content'])) { $thinContentPages[] = $item; }
+    }
+    usort($slowDiagPages, function ($a, $b) { return (int)($b['load_time_ms'] ?? 0) - (int)($a['load_time_ms'] ?? 0); });
+    usort($thinContentPages, function ($a, $b) { return (int)($a['word_count'] ?? 0) - (int)($b['word_count'] ?? 0); });
+    $slowDiagPages    = array_slice($slowDiagPages, 0, 20);
+    $noSchemaPages    = array_slice($noSchemaPages, 0, 30);
+    $thinContentPages = array_slice($thinContentPages, 0, 30);
+}
 
 $criticalItems    = [];
 $warningItems     = [];
@@ -1344,7 +1956,7 @@ $warningItems    = array_slice($warningItems, 0, 100);
 $passedItems     = array_slice($passedItems, 0, 100);
 
 if (!empty($results['broken_links'])) {
-    $brokenLinkItems = array_slice($results['broken_links'], 0, 500);
+    $brokenLinkItems = array_slice(array_values($results['broken_links']), 0, 500);
 }
 
 $baseUrl = Uri::current();
