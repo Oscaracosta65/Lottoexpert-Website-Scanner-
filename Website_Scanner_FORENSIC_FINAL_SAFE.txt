@@ -2,8 +2,10 @@
 <?php
 defined('_JEXEC') or die;
 
+/* LE-AUDIT-BUILD: LESCANV20260503-FORENSIC-SAFE */
+
 /*
- * LottoExpert Full Site Audit Scanner — Joomla/Sourcerer version.
+ * LottoExpert Full Site Audit Scanner - Joomla/Sourcerer version.
  * Paste into a Joomla article using the Sourcerer plugin.
  * IMPORTANT: Keep this article unpublished or access-restricted when not actively using it.
  */
@@ -15,7 +17,7 @@ use Joomla\CMS\Session\Session;
 $app   = Factory::getApplication();
 $input = $app->input;
 
-// ── Security Access Guard ────────────────────────────────────────────────────
+// -- Security Access Guard ----------------------------------------------------
 $leGuardUser = $app->getIdentity();
 if (!$leGuardUser || !$leGuardUser->id) {
     echo '<p style="font-family:sans-serif;color:#b42318;font-weight:bold;padding:20px;">Access denied. You must be logged in to use this tool.</p>';
@@ -27,7 +29,7 @@ if (!$leIsAdmin) {
     return;
 }
 
-// ── Config ───────────────────────────────────────────────────────────────────
+// -- Config -------------------------------------------------------------------
 $config = [
     'site_root'        => 'https://lottoexpert.net',
     'batch_limit'      => 15,
@@ -70,7 +72,7 @@ if ($config['private_token'] !== '') {
     }
 }
 
-// ── Scan options ─────────────────────────────────────────────────────────────
+// -- Scan options -------------------------------------------------------------
 function leAuditGetDefaultOptions(): array
 {
     return [
@@ -85,7 +87,7 @@ function leAuditGetDefaultOptions(): array
     ];
 }
 
-// ── Core functions ───────────────────────────────────────────────────────────
+// -- Core functions -----------------------------------------------------------
 
 function leAuditNormalizeUrl(string $url, array $config): string
 {
@@ -519,7 +521,7 @@ function leAuditExtractExternalLinks(string $html, array $config): array
         }
         $host = strtolower($parts['host']);
         if (in_array($host, $config['allowed_hosts'], true)) {
-            continue; // internal link — handled by the main crawler
+            continue; // internal link - handled by the main crawler
         }
         $clean = $parts['scheme'] . '://' . $parts['host'] . ($parts['path'] ?? '/');
         if (!empty($parts['query'])) {
@@ -729,7 +731,7 @@ function leAuditCheckUrl(string $url, array $config, array $options = []): array
         $warnings[] = 'Slow page load time (' . $fetch['load_time_ms'] . ' ms) - Google uses page speed as a ranking factor; pages taking over 3 seconds to load are penalised and have higher visitor bounce rates. Investigate large images, render-blocking scripts, or slow server response times.';
     }
 
-    // ── Performance diagnostics ──────────────────────────────────────────────
+    // -- Performance diagnostics ----------------------------------------------
     $htmlSizeKb       = round(strlen($html) / 1024, 1);
     $scriptCount      = substr_count(strtolower($html), '<script');
     $stylesheetCount  = substr_count(strtolower($html), '<link') + substr_count(strtolower($html), '<style');
@@ -757,7 +759,7 @@ function leAuditCheckUrl(string $url, array $config, array $options = []): array
     elseif ($fetch['load_time_ms'] > 3000)  { $slowTier = 'Slow'; }
     elseif ($fetch['load_time_ms'] > 1000)  { $slowTier = 'Acceptable'; }
 
-    // ── Content quality ──────────────────────────────────────────────────────
+    // -- Content quality ------------------------------------------------------
     $bodyText    = preg_replace('#<(script|style|noscript)[^>]*>.*?</\1>#is', '', $html);
     $bodyText    = preg_replace('/\s+/', ' ', trim(strip_tags($bodyText)));
     $wordCount   = ($bodyText !== '') ? count(explode(' ', $bodyText)) : 0;
@@ -766,7 +768,7 @@ function leAuditCheckUrl(string $url, array $config, array $options = []): array
     $h3Count     = (int) (preg_match_all('#<h3\b#i', $html) ?: 0);
     $paragraphCount = (int) (preg_match_all('#<p\b#i', $html) ?: 0);
 
-    // ── Structured data (JSON-LD) ────────────────────────────────────────────
+    // -- Structured data (JSON-LD) --------------------------------------------
     $jsonLdCount = 0; $invalidJsonLdCount = 0; $schemaTypes = [];
     if (preg_match_all('#<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>#is', $html, $jldMatches)) {
                 $__leForeachTmp10 = $jldMatches[1];
@@ -785,13 +787,13 @@ function leAuditCheckUrl(string $url, array $config, array $options = []): array
                 }
     }
 
-    // ── Page type and importance ─────────────────────────────────────────────
+    // -- Page type and importance ---------------------------------------------
     $pageType       = leAuditDetectPageType($url, $title, $h1Text);
     $importance     = leAuditDetectImportance($url, $pageType);
     $isImportant    = $importance['is_important'];
     $importanceScore = $importance['importance_score'];
 
-    // ── Indexability ─────────────────────────────────────────────────────────
+    // -- Indexability ---------------------------------------------------------
     $statusIndexable   = ($fetch['status'] >= 200 && $fetch['status'] < 300);
     $finalUrlDiffers   = ($fetch['final_url'] !== '' && rtrim($fetch['final_url'], '/') !== rtrim($url, '/'));
     $canonicalStatus   = 'Missing Canonical';
@@ -1222,7 +1224,7 @@ function leAuditExportCsv(array $results): void
     exit;
 }
 
-// ── Page Type Detection ──────────────────────────────────────────────────────
+// -- Page Type Detection ------------------------------------------------------
 function leAuditDetectPageType(string $url, string $title, string $h1): string
 {
     $u = strtolower($url);
@@ -1292,7 +1294,7 @@ function leAuditDetectPageType(string $url, string $title, string $h1): string
     return 'Unknown';
 }
 
-// ── Importance Detection ─────────────────────────────────────────────────────
+// -- Importance Detection -----------------------------------------------------
 function leAuditDetectImportance(string $url, string $pageType): array
 {
     $scoreMap = [
@@ -1313,7 +1315,7 @@ function leAuditDetectImportance(string $url, string $pageType): array
     return ['is_important' => $isImportant, 'importance_score' => $score];
 }
 
-// ── Site Health Scoring ──────────────────────────────────────────────────────
+// -- Site Health Scoring ------------------------------------------------------
 function leAuditComputeHealthScores(array $results, array $summary): array
 {
     $total = max(1, (int) $summary['total_scanned']);
@@ -1354,7 +1356,7 @@ function leAuditComputeHealthScores(array $results, array $summary): array
     ];
 }
 
-// ── Issue Priority Engine ────────────────────────────────────────────────────
+// -- Issue Priority Engine ----------------------------------------------------
 function leAuditBuildPriorityIssues(array $results, array $config): array
 {
     $issues = [];
@@ -1518,7 +1520,7 @@ function leAuditBuildPriorityIssues(array $results, array $config): array
     return array_slice($issues, 0, 50);
 }
 
-// ── Additional Export Functions ───────────────────────────────────────────────
+// -- Additional Export Functions -----------------------------------------------
 function leAuditStartExport(string $filename, string $contentType): void
 {
     // Always clean OB first so buffered Joomla/template HTML never leaks into the download.
@@ -1677,7 +1679,7 @@ function leAuditExportJson(array $results): void
     exit;
 }
 
-// ── Handle actions ───────────────────────────────────────────────────────────
+// -- Handle actions -----------------------------------------------------------
 [$queue, $results] = leAuditInitState($config);
 
 // Load persisted scan options (or defaults for new sessions / old sessions)
@@ -1948,7 +1950,7 @@ if ($action !== '' && !Session::checkToken('post')) {
     while ($intLinkChecked < 10 && !empty($queue['int_link_pending'])) {
         $intLinkUrl = array_shift($queue['int_link_pending']);
 
-        // Skip URLs already fully crawled — check_broken_internal handles those
+        // Skip URLs already fully crawled - check_broken_internal handles those
         if (isset($queue['scanned'][$intLinkUrl])) {
             $intLinkChecked++;
             continue;
@@ -2060,7 +2062,7 @@ if ($action !== '' && !Session::checkToken('post')) {
     leAuditExportJson($results);
 }
 
-// ── Reload state for display ─────────────────────────────────────────────────
+// -- Reload state for display -------------------------------------------------
 $results = leAuditSessionGet('le_results', []);
 $queue   = leAuditSessionGet('le_queue', []);
 $summary = leAuditBuildSummary($results);
@@ -2070,11 +2072,11 @@ $seenCount    = !empty($queue['seen'])    ? count($queue['seen'])    : 0;
 $scannedCount = !empty($queue['scanned']) ? count($queue['scanned']) : 0;
 $progressPct  = ($seenCount > 0) ? min(100, (int) round(($scannedCount / $seenCount) * 100)) : 0;
 
-// ── Health scores ─────────────────────────────────────────────────────────────
+// -- Health scores -------------------------------------------------------------
 $healthScores   = leAuditComputeHealthScores($results, $summary);
 $priorityIssues = leAuditBuildPriorityIssues($results, $config);
 
-// ── Duplicate metadata ────────────────────────────────────────────────────────
+// -- Duplicate metadata --------------------------------------------------------
 $dupTitleGroups = [];
 $dupDescGroups  = [];
 if (!empty($results['items'])) {
@@ -2104,7 +2106,7 @@ if (!empty($results['items'])) {
         $urls = $__leForeachTmp34[$__leForeachKey34]; if (count($urls) > 1) { $dupDescGroups[$d]  = $urls; }     }
 }
 
-// ── Performance / content / schema data ───────────────────────────────────────
+// -- Performance / content / schema data ---------------------------------------
 $slowDiagPages      = [];
 $invalidSchemaPages = [];
 $noSchemaPages      = [];
@@ -2371,7 +2373,7 @@ $token   = Session::getFormToken();
     .le-audit-button  { width: 100%; }
 }
 
-/* ── Health Score Cards ───────────────────────────────────────────────────── */
+/* -- Health Score Cards ----------------------------------------------------- */
 .le-health-grid {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -2407,7 +2409,7 @@ $token   = Session::getFormToken();
     .le-health-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-/* ── Priority Table ──────────────────────────────────────────────────────── */
+/* -- Priority Table -------------------------------------------------------- */
 .le-priority-score {
     display: inline-block;
     min-width: 36px;
@@ -2422,7 +2424,7 @@ $token   = Session::getFormToken();
 .le-sev-medium   { background: #e0f2fe; color: #0c4a6e; }
 .le-sev-low      { background: #f8fafc; color: #344054; }
 
-/* ── Filter Bar ──────────────────────────────────────────────────────────── */
+/* -- Filter Bar ------------------------------------------------------------ */
 .le-filter-bar {
     display: flex;
     flex-wrap: wrap;
@@ -2449,7 +2451,7 @@ $token   = Session::getFormToken();
     color: #344054;
 }
 
-/* ── Export Buttons Row ──────────────────────────────────────────────────── */
+/* -- Export Buttons Row ---------------------------------------------------- */
 .le-export-row {
     display: flex;
     flex-wrap: wrap;
@@ -2469,7 +2471,7 @@ $token   = Session::getFormToken();
     color: #fff;
 }
 
-/* ── Indexability pill ───────────────────────────────────────────────────── */
+/* -- Indexability pill ----------------------------------------------------- */
 .le-audit-pill.indexable     { background: #dcfae6; color: #067647; }
 .le-audit-pill.not-indexable { background: #fee4e2; color: #b42318; }
 .le-audit-pill.maybe         { background: #fff7e6; color: #946200; }
@@ -3208,7 +3210,7 @@ $token   = Session::getFormToken();
     var meta    = document.getElementById('leAuditMeta');
     var pending = meta ? parseInt(meta.getAttribute('data-pending') || '0', 10) : 0;
 
-    // ── Scan options: field-name → option-key mapping ──────────────────────
+    // -- Scan options: field-name -> option-key mapping ----------------------
     var leOptMap = {
         'opt_broken_internal':       'check_broken_internal',
         'opt_broken_internal_links': 'check_broken_internal_links',
@@ -3224,8 +3226,9 @@ $token   = Session::getFormToken();
     function leGetOpts() {
         var opts = {};
         Object.keys(leOptMap).forEach(function (fn) {
+            var leOptKey = leOptMap[fn];
             var el = document.querySelector('input[name="' + fn + '"]');
-            opts[leOptMap[fn]] = el ? el.checked : true;
+            opts[leOptKey] = el ? el.checked : true;
         });
         return opts;
     }
@@ -3241,9 +3244,10 @@ $token   = Session::getFormToken();
 
     // Inject batch_opt_* hidden fields into the batch form so PHP receives them
     function leInjectBatchOpts(form, opts) {
-        form.querySelectorAll('input[data-le-batch-opt]').forEach(function (el) {
-            el.parentNode.removeChild(el);
-        });
+        var leBatchOldInputs = Array.prototype.slice.call(form.querySelectorAll('input[data-le-batch-opt]'));
+        for (var leBoi = 0; leBoi < leBatchOldInputs.length; leBoi++) {
+            leBatchOldInputs[leBoi].parentNode.removeChild(leBatchOldInputs[leBoi]);
+        }
         Object.keys(opts).forEach(function (k) {
             var inp = document.createElement('input');
             inp.type  = 'hidden';
@@ -3270,7 +3274,7 @@ $token   = Session::getFormToken();
         form.submit();
     }
 
-    // ── On page load: apply stored options to the checkboxes ──────────────
+    // -- On page load: apply stored options to the checkboxes --------------
     try {
         var stored = localStorage.getItem(LS_OPT_KEY);
         if (stored) { leApplyOpts(JSON.parse(stored)); }
@@ -3302,13 +3306,27 @@ $token   = Session::getFormToken();
                 msg.innerHTML = 'Saving...';
             }
 
-            fetch(saveForm.action, { method: 'POST', body: fd, credentials: 'same-origin' })
-                .then(function (r) {
-                    if (!r.ok) { throw new Error('HTTP ' + r.status); }
-                    return r.json();
-                })
-                .then(function (data) {
-                    if (!data || !data.ok) { throw new Error('Save failed'); }
+            var leXhr1 = new XMLHttpRequest();
+            leXhr1.open('POST', saveForm.action, true);
+            leXhr1.onreadystatechange = function () {
+                if (leXhr1.readyState !== 4) { return; }
+                if (leXhr1.status >= 200 && leXhr1.status < 300) {
+                    var data = null;
+                    try { data = JSON.parse(leXhr1.responseText); } catch (e) {}
+                    if (!data || !data.ok) {
+                        if (saveBtn) {
+                            saveBtn.disabled = false;
+                            saveBtn.innerHTML = 'Save Options';
+                        }
+                        if (msg) {
+                            msg.style.display = 'inline-block';
+                            msg.style.color = '#b42318';
+                            msg.style.background = '#fee4e2';
+                            msg.style.borderColor = '#fecdca';
+                            msg.innerHTML = 'Save failed. Refresh and try again.';
+                        }
+                        return;
+                    }
                     if (saveBtn) {
                         saveBtn.disabled = false;
                         saveBtn.innerHTML = 'Saved';
@@ -3329,8 +3347,7 @@ $token   = Session::getFormToken();
                             saveBtn.style.color = '';
                         }
                     }, 3000);
-                })
-                .catch(function () {
+                } else {
                     if (saveBtn) {
                         saveBtn.disabled = false;
                         saveBtn.innerHTML = 'Save Options';
@@ -3342,11 +3359,13 @@ $token   = Session::getFormToken();
                         msg.style.borderColor = '#fecdca';
                         msg.innerHTML = 'Save failed. Refresh and try again.';
                     }
-                });
+                }
+            };
+            leXhr1.send(fd);
         });
     }
 
-    // ── "Scan Next 10" button — inject opts on real submit-event click ─────
+    // -- "Scan Next 10" button - inject opts on real submit-event click -----
     var batchForm = document.getElementById('leAutoScanForm');
     if (batchForm) {
         batchForm.addEventListener('submit', function () {
@@ -3354,7 +3373,7 @@ $token   = Session::getFormToken();
         });
     }
 
-    // ── Button loading states ──────────────────────────────────────────────
+    // -- Button loading states ----------------------------------------------
     var buttons = document.querySelectorAll('.le-audit-button');
     for (var i = 0; i < buttons.length; i++) {
         buttons[i].addEventListener('click', function () {
@@ -3365,7 +3384,7 @@ $token   = Session::getFormToken();
         });
     }
 
-    // ── Progress bar live update ───────────────────────────────────────────
+    // -- Progress bar live update -------------------------------------------
     function leUpdateProgress(pct, scanned, seen, pendingN, etaLabel) {
         var bar   = document.getElementById('leProgressBar');
         var label = document.getElementById('leProgressLabel');
@@ -3379,7 +3398,7 @@ $token   = Session::getFormToken();
         }
     }
 
-    // ── AJAX batch runner ──────────────────────────────────────────────────
+    // -- AJAX batch runner --------------------------------------------------
     var runningBanner = document.getElementById('leAutorunRunning');
     var doneBanner    = document.getElementById('leAutorunDone');
     var pendingSpan   = document.getElementById('leAutorunPending');
@@ -3394,12 +3413,20 @@ $token   = Session::getFormToken();
         Object.keys(opts).forEach(function (k) {
             fd.set('batch_opt_' + k, opts[k] ? '1' : '0');
         });
-        fetch(ajaxForm.action, { method: 'POST', body: fd, credentials: 'same-origin' })
-            .then(function (r) {
-                if (!r.ok) { throw new Error('HTTP ' + r.status); }
-                return r.json();
-            })
-            .then(function (data) {
+        var leXhr2 = new XMLHttpRequest();
+        leXhr2.open('POST', ajaxForm.action, true);
+        leXhr2.onreadystatechange = function () {
+            if (leXhr2.readyState !== 4) { return; }
+            if (leXhr2.status >= 200 && leXhr2.status < 300) {
+                var data = null;
+                try { data = JSON.parse(leXhr2.responseText); } catch (e) {}
+                if (!data) {
+                    // JSON parse failed - treat as error, wait and retry
+                    if (sessionStorage.getItem(AUTORUN_KEY) === '1') {
+                        setTimeout(leRunAjaxBatch, 3000);
+                    }
+                    return;
+                }
                 leUpdateProgress(data.progress_pct, data.scanned, data.seen, data.pending, data.eta_label);
                 if (pendingSpan) { pendingSpan.textContent = data.pending; }
                 if (sessionStorage.getItem(AUTORUN_KEY) !== '1') { return; }
@@ -3413,16 +3440,17 @@ $token   = Session::getFormToken();
                     return;
                 }
                 setTimeout(leRunAjaxBatch, 100);
-            })
-            .catch(function () {
-                // On any error (504, network failure, JSON parse) wait and retry
+            } else {
+                // On any error (504, network failure) wait and retry
                 if (sessionStorage.getItem(AUTORUN_KEY) === '1') {
                     setTimeout(leRunAjaxBatch, 3000);
                 }
-            });
+            }
+        };
+        leXhr2.send(fd);
     }
 
-    // ── "Auto Scan Until Finished" button ─────────────────────────────────
+    // -- "Auto Scan Until Finished" button ---------------------------------
     var autoBtn = document.getElementById('leBtnAutoScan');
     if (autoBtn) {
         autoBtn.addEventListener('click', function () {
@@ -3439,7 +3467,7 @@ $token   = Session::getFormToken();
         });
     }
 
-    // ── "Stop Auto Scan" button ────────────────────────────────────────────
+    // -- "Stop Auto Scan" button --------------------------------------------
     var stopBtn = document.getElementById('leBtnStopScan');
     if (stopBtn) {
         stopBtn.addEventListener('click', function () {
@@ -3453,14 +3481,14 @@ $token   = Session::getFormToken();
         });
     }
 
-    // ── "Stop All" form — clear autorun state before server-side queue wipe ─
+    // -- "Stop All" form - clear autorun state before server-side queue wipe -
     window.leStopAllConfirm = function () {
         sessionStorage.removeItem(AUTORUN_KEY);
         sessionStorage.removeItem(SCROLL_KEY);
         return confirm('Stop all scanning and clear the pending queue? Results collected so far will be kept.');
     };
 
-    // ── On page load: restart AJAX loop if auto-scan was interrupted ───────
+    // -- On page load: restart AJAX loop if auto-scan was interrupted -------
     if (sessionStorage.getItem(AUTORUN_KEY) === '1') {
         var savedY = parseInt(sessionStorage.getItem(SCROLL_KEY) || '0', 10);
         if (savedY > 0) { window.scrollTo(0, savedY); }
@@ -3479,7 +3507,7 @@ $token   = Session::getFormToken();
         }
     }
 
-    // ── Client-side table filter (ES5) ────────────────────────────────────
+    // -- Client-side table filter (ES5) ------------------------------------
     function leFilterTable(tableId, filterFn) {
         var table = document.getElementById(tableId);
         if (!table) { return; }
