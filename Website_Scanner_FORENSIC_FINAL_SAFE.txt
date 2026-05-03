@@ -3390,8 +3390,8 @@ $token   = Session::getFormToken();
     // Inject batch_opt_* hidden fields into the batch form so PHP receives them
     function leInjectBatchOpts(form, opts) {
         var leBatchOldInputs = Array.prototype.slice.call(form.querySelectorAll('input[data-le-batch-opt]'));
-        for (var leBoi = 0; leBoi < leBatchOldInputs.length; leBoi++) {
-            leBatchOldInputs[leBoi].parentNode.removeChild(leBatchOldInputs[leBoi]);
+        for (var leOldInputIdx = 0; leOldInputIdx < leBatchOldInputs.length; leOldInputIdx++) {
+            leBatchOldInputs[leOldInputIdx].parentNode.removeChild(leBatchOldInputs[leOldInputIdx]);
         }
         Object.keys(opts).forEach(function (k) {
             var inp = document.createElement('input');
