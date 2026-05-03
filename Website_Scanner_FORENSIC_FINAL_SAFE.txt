@@ -2,7 +2,7 @@
 <?php
 defined('_JEXEC') or die;
 
-/* LE-AUDIT-BUILD: LESCANV20260503-FORENSIC-SAFE */
+/* LE-AUDIT-BUILD: LESCANV20260503-BRANDING-V2 */
 
 /*
  * LottoExpert Full Site Audit Scanner - Joomla/Sourcerer version.
@@ -660,9 +660,10 @@ function leAuditHasNoindex(string $html, string $responseHeaders = ''): bool
 
 function leAuditCheckUrl(string $url, array $config, array $options = []): array
 {
-    $checkSeo     = $options['check_seo']      ?? true;
-    $checkSpeed   = $options['check_speed']    ?? true;
-    $checkAltText = $options['check_alt_text'] ?? true;
+    $checkSeo            = $options['check_seo']              ?? true;
+    $checkSpeed          = $options['check_speed']            ?? true;
+    $checkAltText        = $options['check_alt_text']         ?? true;
+    $checkBrokenInternal = $options['check_broken_internal']  ?? true;
 
     $fetch = leAuditFetchUrl($url, $config);
     $html  = $fetch['body'];
@@ -682,13 +683,17 @@ function leAuditCheckUrl(string $url, array $config, array $options = []): array
     $warnings = [];
 
     if ($fetch['status'] === 0) {
+        // Always flag complete connection failures - these indicate the URL is unreachable
         $issues[] = 'Connection failed: ' . $fetch['error'];
-    } elseif ($fetch['status'] === 404) {
-        $issues[] = '404 Not Found';
-    } elseif ($fetch['status'] >= 500) {
-        $issues[] = 'Server error ' . $fetch['status'];
-    } elseif ($fetch['status'] >= 400) {
-        $issues[] = 'Client error ' . $fetch['status'];
+    } elseif ($checkBrokenInternal) {
+        // Only flag 4xx/5xx as issues when the "Broken Internal Pages" check is enabled
+        if ($fetch['status'] === 404) {
+            $issues[] = '404 Not Found';
+        } elseif ($fetch['status'] >= 500) {
+            $issues[] = 'Server error ' . $fetch['status'];
+        } elseif ($fetch['status'] >= 400) {
+            $issues[] = 'Client error ' . $fetch['status'];
+        }
     }
 
     if ($checkSeo && $fetch['status'] >= 200 && $fetch['status'] < 300) {
@@ -2173,204 +2178,307 @@ $token   = Session::getFormToken();
 ?>
 
 <style>
+/* -- LottoExpert Brand Tokens ----------------------------------------------- */
+:root {
+    --le-navy:       #0f2d5a;
+    --le-navy-mid:   #1b3a6b;
+    --le-navy-light: #e8eef8;
+    --le-navy-pale:  #f0f4fa;
+    --le-gold:       #b8860b;
+    --le-gold-mid:   #c8921a;
+    --le-gold-light: #fef7e0;
+    --le-gold-border:#e8c86a;
+    --le-text:       #0f1f3a;
+    --le-muted:      #4a6080;
+    --le-border:     #dce4f0;
+    --le-card:       #ffffff;
+    --le-shadow:     rgba(15, 45, 90, 0.08);
+}
+
+/* -- Layout ----------------------------------------------------------------- */
 .le-audit-wrap {
     max-width: 1280px;
     margin: 32px auto;
-    padding: 0 18px;
-    font-family: Arial, Helvetica, sans-serif;
-    color: #172033;
+    padding: 0 18px 48px;
+    font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+    color: var(--le-text);
 }
 
+/* -- Brand Bar -------------------------------------------------------------- */
+.le-brand-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 0 2px;
+    margin-bottom: 20px;
+}
+.le-brand-logo {
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--le-navy);
+    letter-spacing: -0.4px;
+}
+.le-brand-tool {
+    font-size: 14px;
+    color: var(--le-muted);
+    font-weight: 600;
+    border-left: 2px solid var(--le-gold-mid);
+    padding-left: 12px;
+    line-height: 1.4;
+}
+.le-brand-badge {
+    background: var(--le-gold-light);
+    color: var(--le-gold);
+    border: 1px solid var(--le-gold-border);
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+}
+
+/* -- Cards ------------------------------------------------------------------ */
 .le-audit-card {
-    background: #ffffff;
-    border: 1px solid #dfe5ef;
+    background: var(--le-card);
+    border: 1px solid var(--le-border);
     border-radius: 18px;
-    padding: 22px;
+    padding: 22px 24px;
     margin-bottom: 18px;
-    box-shadow: 0 8px 24px rgba(23, 32, 51, 0.06);
+    box-shadow: 0 4px 20px var(--le-shadow);
+    transition: box-shadow 0.15s ease;
+}
+.le-audit-card:hover {
+    box-shadow: 0 8px 28px rgba(15, 45, 90, 0.12);
+}
+.le-audit-card-hero {
+    border-top: 4px solid var(--le-gold-mid);
+}
+.le-audit-card h2 {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--le-navy);
+    margin: 0 0 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--le-navy-light);
+    letter-spacing: -0.2px;
 }
 
+/* -- Page Title & Subtitle -------------------------------------------------- */
 .le-audit-title {
     font-size: 30px;
     line-height: 1.2;
     margin: 0 0 8px;
-    color: #101828;
+    color: var(--le-navy);
+    font-weight: 900;
+    letter-spacing: -0.5px;
 }
-
 .le-audit-subtitle {
-    font-size: 16px;
-    line-height: 1.6;
-    color: #526070;
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--le-muted);
     margin: 0;
+    max-width: 860px;
 }
 
+/* -- Actions Row ------------------------------------------------------------ */
 .le-audit-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 10px;
     margin-top: 18px;
 }
 
+/* -- Buttons ---------------------------------------------------------------- */
 .le-audit-button {
     appearance: none;
     border: 0;
-    border-radius: 999px;
-    padding: 12px 18px;
+    border-radius: 8px;
+    padding: 11px 18px;
     font-weight: 700;
     cursor: pointer;
-    background: #1a73e8;
+    background: var(--le-navy-mid);
     color: #ffffff;
     text-decoration: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 44px;
-    font-size: 15px;
+    min-height: 42px;
+    font-size: 14px;
+    font-family: inherit;
+    letter-spacing: 0.01em;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
 }
-
 .le-audit-button:hover,
 .le-audit-button:focus {
-    background: #1558b0;
+    background: var(--le-navy);
     color: #ffffff;
+    box-shadow: 0 3px 10px rgba(15, 45, 90, 0.25);
+    outline: none;
 }
-
 .le-audit-button.secondary {
-    background: #eef4ff;
-    color: #174ea6;
+    background: var(--le-navy-light);
+    color: var(--le-navy-mid);
+    border: 1px solid #c8d8ef;
 }
-
 .le-audit-button.secondary:hover,
 .le-audit-button.secondary:focus {
-    background: #dbeafe;
-    color: #174ea6;
+    background: #d6e4f7;
+    color: var(--le-navy);
+    border-color: #a8c0e8;
+    box-shadow: 0 2px 8px rgba(15, 45, 90, 0.12);
 }
-
 .le-audit-button.danger {
     background: #b42318;
     color: #ffffff;
 }
+.le-audit-button.danger:hover,
+.le-audit-button.danger:focus {
+    background: #8f1912;
+    box-shadow: 0 3px 10px rgba(180, 35, 24, 0.25);
+}
+.le-audit-button:disabled { opacity: .55; cursor: default; box-shadow: none; }
 
-.le-audit-button:disabled { opacity: .6; cursor: default; }
-
+/* -- Stats Grid ------------------------------------------------------------- */
 .le-audit-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 14px;
 }
-
 .le-audit-metric {
-    background: #f8fafc;
-    border: 1px solid #e5eaf2;
+    background: var(--le-navy-pale);
+    border: 1px solid var(--le-border);
     border-radius: 14px;
     padding: 16px;
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
-
+.le-audit-metric:hover {
+    box-shadow: 0 4px 14px rgba(15, 45, 90, 0.1);
+    border-color: #b8ccec;
+}
 .le-audit-metric strong {
     display: block;
     font-size: 28px;
-    color: #101828;
+    font-weight: 900;
+    color: var(--le-navy);
     margin-bottom: 4px;
+    line-height: 1.1;
 }
-
 .le-audit-metric span {
     display: block;
-    color: #667085;
-    font-size: 14px;
+    color: var(--le-muted);
+    font-size: 13px;
+    font-weight: 500;
 }
 
+/* -- Alert ------------------------------------------------------------------ */
 .le-audit-alert {
     padding: 14px 16px;
-    border-radius: 14px;
+    border-radius: 12px;
     margin: 16px 0 0;
     background: #fff7e6;
     border: 1px solid #ffd591;
     color: #7a4b00;
     font-weight: 700;
     word-break: break-word;
+    font-size: 14px;
 }
 
+/* -- Tables ----------------------------------------------------------------- */
 .le-audit-table-wrap {
     overflow-x: auto;
-    border: 1px solid #e5eaf2;
+    border: 1px solid var(--le-border);
     border-radius: 14px;
 }
-
 .le-audit-table {
     width: 100%;
     border-collapse: collapse;
     min-width: 980px;
 }
-
 .le-audit-table th,
 .le-audit-table td {
     text-align: left;
     vertical-align: top;
-    padding: 12px;
-    border-bottom: 1px solid #e5eaf2;
-    font-size: 14px;
-    line-height: 1.45;
+    padding: 11px 13px;
+    border-bottom: 1px solid var(--le-border);
+    font-size: 13px;
+    line-height: 1.5;
 }
-
+.le-audit-table tbody tr:last-child td {
+    border-bottom: 0;
+}
 .le-audit-table th {
-    background: #f8fafc;
-    font-weight: 800;
-    color: #344054;
+    background: var(--le-navy);
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-bottom: 0;
 }
+.le-audit-table thead th:first-child { border-radius: 13px 0 0 0; }
+.le-audit-table thead th:last-child  { border-radius: 0 13px 0 0; }
+.le-audit-table tbody tr:hover td { background: var(--le-navy-pale); }
 
 .le-audit-url { max-width: 340px; word-break: break-word; }
 
+/* -- Status Pills ----------------------------------------------------------- */
 .le-audit-pill {
     display: inline-block;
-    padding: 4px 9px;
+    padding: 3px 9px;
     border-radius: 999px;
     font-size: 12px;
     font-weight: 800;
+    letter-spacing: 0.02em;
 }
-
 .le-audit-pill.critical { background: #fee4e2; color: #b42318; }
 .le-audit-pill.warning  { background: #fff7e6; color: #946200; }
 .le-audit-pill.pass     { background: #dcfae6; color: #067647; }
 
-.le-audit-small { color: #667085; font-size: 13px; line-height: 1.5; }
+.le-audit-small { color: var(--le-muted); font-size: 13px; line-height: 1.55; }
 
+/* -- Code Block ------------------------------------------------------------- */
 .le-audit-code {
-    background: #101828;
+    background: var(--le-navy);
     color: #f9fafb;
     padding: 12px;
-    border-radius: 12px;
+    border-radius: 10px;
     overflow-x: auto;
     font-size: 13px;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
 }
 
+/* -- Progress Bar ----------------------------------------------------------- */
 .le-audit-progress-bar-wrap {
-    background: #e5eaf2;
+    background: var(--le-border);
     border-radius: 999px;
-    height: 18px;
+    height: 16px;
     overflow: hidden;
-    margin: 10px 0 6px;
+    margin: 12px 0 8px;
 }
-
 .le-audit-progress-bar {
-    height: 18px;
+    height: 16px;
     border-radius: 999px;
-    background: #1a73e8;
+    background: linear-gradient(90deg, var(--le-navy-mid) 0%, var(--le-gold-mid) 100%);
     transition: width 0.4s ease;
+    min-width: 4px;
 }
-
 .le-audit-progress-label {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
-    color: #344054;
+    color: var(--le-navy);
 }
 
+/* -- Responsive ------------------------------------------------------------- */
 @media (max-width: 900px) {
     .le-audit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-
 @media (max-width: 560px) {
     .le-audit-grid    { grid-template-columns: 1fr; }
     .le-audit-title   { font-size: 24px; }
     .le-audit-button  { width: 100%; }
+    .le-brand-bar     { gap: 8px; }
 }
 
 /* -- Health Score Cards ----------------------------------------------------- */
@@ -2380,23 +2488,29 @@ $token   = Session::getFormToken();
     gap: 10px;
 }
 .le-health-card {
-    border-radius: 12px;
-    padding: 14px 10px;
+    border-radius: 14px;
+    padding: 16px 10px;
     text-align: center;
-    border: 1px solid #e5eaf2;
+    border: 1px solid var(--le-border);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.le-health-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px var(--le-shadow);
 }
 .le-health-score {
-    font-size: 32px;
-    font-weight: 800;
+    font-size: 34px;
+    font-weight: 900;
     line-height: 1;
-    margin-bottom: 4px;
+    margin-bottom: 5px;
+    letter-spacing: -1px;
 }
 .le-health-label {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
-    color: #667085;
+    color: var(--le-muted);
     text-transform: uppercase;
-    letter-spacing: .5px;
+    letter-spacing: .7px;
 }
 .le-score-green  { background: #dcfae6; color: #067647; border-color: #86efac; }
 .le-score-yellow { background: #fff7e6; color: #946200; border-color: #ffd591; }
@@ -2422,7 +2536,7 @@ $token   = Session::getFormToken();
 .le-sev-critical { background: #fee4e2; color: #b42318; }
 .le-sev-high     { background: #fff3cd; color: #7a4b00; }
 .le-sev-medium   { background: #e0f2fe; color: #0c4a6e; }
-.le-sev-low      { background: #f8fafc; color: #344054; }
+.le-sev-low      { background: var(--le-navy-pale); color: #344054; }
 
 /* -- Filter Bar ------------------------------------------------------------ */
 .le-filter-bar {
@@ -2432,23 +2546,31 @@ $token   = Session::getFormToken();
     align-items: center;
     margin-bottom: 14px;
     padding: 12px 14px;
-    background: #f8fafc;
-    border: 1px solid #e5eaf2;
+    background: var(--le-navy-pale);
+    border: 1px solid var(--le-border);
     border-radius: 10px;
 }
 .le-filter-bar input[type="text"],
 .le-filter-bar select {
     padding: 7px 10px;
-    border: 1px solid #d0d7de;
+    border: 1px solid #c0ccdc;
     border-radius: 6px;
     font-size: 13px;
     background: #fff;
     min-width: 140px;
+    font-family: inherit;
+    color: var(--le-text);
+}
+.le-filter-bar input[type="text"]:focus,
+.le-filter-bar select:focus {
+    outline: 2px solid var(--le-navy-mid);
+    outline-offset: 1px;
+    border-color: var(--le-navy-mid);
 }
 .le-filter-bar label {
     font-size: 13px;
     font-weight: 600;
-    color: #344054;
+    color: var(--le-navy);
 }
 
 /* -- Export Buttons Row ---------------------------------------------------- */
@@ -2464,11 +2586,28 @@ $token   = Session::getFormToken();
     font-size: 13px;
     padding: 9px 14px;
     min-height: 38px;
+    border-radius: 8px;
 }
 .le-audit-button.export:hover,
 .le-audit-button.export:focus {
     background: #0f766e;
     color: #fff;
+    box-shadow: 0 3px 10px rgba(13, 148, 136, 0.25);
+}
+
+/* -- Scan Options Panel ----------------------------------------------------- */
+.le-options-panel {
+    margin-top: 18px;
+    border: 1px solid var(--le-border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    background: var(--le-navy-pale);
+}
+.le-options-title {
+    margin: 0 0 4px;
+    font-weight: 800;
+    font-size: 15px;
+    color: var(--le-navy-mid);
 }
 
 /* -- Indexability pill ----------------------------------------------------- */
@@ -2479,14 +2618,20 @@ $token   = Session::getFormToken();
 
 <div class="le-audit-wrap">
 
-    <section class="le-audit-card">
+    <div class="le-brand-bar">
+        <span class="le-brand-logo">LottoExpert</span>
+        <span class="le-brand-tool">Site Audit Scanner</span>
+        <span class="le-brand-badge">Admin Tool</span>
+    </div>
+
+    <section class="le-audit-card le-audit-card-hero">
         <h1 class="le-audit-title">LottoExpert Full Site Audit Scanner</h1>
         <p class="le-audit-subtitle">
-            Private crawler for LottoExpert. Discovers internal URLs from the sitemap (including nested sitemap index files), crawls internal links, scans 10 URLs per batch, auto-continues without timeouts, and reports SEO, crawlability, metadata, canonical, H1, noindex, image alt, speed, and broken-page issues.
+            Automated audit tool for lottoexpert.net. Discovers all internal pages via sitemap and link-following, then reports SEO issues, broken pages, broken links, missing alt text, slow pages, duplicate metadata, and structured data errors. Run a single batch of 10 or use Auto Scan to process the entire site unattended.
         </p>
 
-        <div style="margin-top:18px;border:1px solid #d0d7de;border-radius:8px;padding:16px 20px;">
-            <p style="margin:0 0 4px;font-weight:700;font-size:15px;color:#1a73e8;">Scan Options</p>
+        <div class="le-options-panel">
+            <p class="le-options-title">Scan Options</p>
             <form id="leSaveOptionsForm" method="post" action="<?php echo htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8'); ?>" style="margin-top:10px;">
                 <input type="hidden" name="audit_action" value="save_options">
                 <input type="hidden" name="<?php echo $token; ?>" value="1">
