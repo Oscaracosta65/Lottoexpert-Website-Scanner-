@@ -485,7 +485,7 @@ $message        = $this->message;
                                 $statusLabel = match(true) {
                                     $statusCode === 0   => '0 &ndash; Connection Failed',
                                     $statusCode === 400 => '400 &ndash; Bad Request',
-                                    $statusCode === 401 => '401 &ndash; Unauthorised',
+                                    $statusCode === 401 => '401 &ndash; Unauthorized',
                                     $statusCode === 403 => '403 &ndash; Forbidden',
                                     $statusCode === 404 => '404 &ndash; Not Found',
                                     $statusCode === 405 => '405 &ndash; Method Not Allowed',
