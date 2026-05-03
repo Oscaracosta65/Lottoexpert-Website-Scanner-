@@ -26,12 +26,12 @@ $leIsPost = ($input->getMethod() === 'POST');
 if ($leIsPost) {
     if (!Session::checkToken()) { http_response_code(403); exit('Invalid CSRF token'); }
 }
-if ($config['private_token'] !== 'CHANGE_ME_SECRET') {
-    if ($lePriv !== $config['private_token']) {
-        http_response_code(403);
-        echo '[[div class="le-guard"]]Access denied. Provide ?letoken=YOUR_TOKEN[[/div]]';
-        exit;
-    }
+// WARNING: If private_token is still 'CHANGE_ME_SECRET' the scanner has no auth guard.
+// Set a real secret token in $config before deploying to production.
+if ($config['private_token'] !== 'CHANGE_ME_SECRET' && $lePriv !== $config['private_token']) {
+    http_response_code(403);
+    echo '[[div class="le-guard"]]Access denied. Provide ?letoken=YOUR_TOKEN[[/div]]';
+    exit;
 }
 
 function leAuditGetDefaultOptions(): array {
@@ -730,10 +730,9 @@ if ($action === 'start') {
         if (count($results['queue']) === 0 || $results['scanned'] >= $config['max_pages']) {
             $results['status'] = 'done';
         }
-        // Session safety cap
+        // Session safety cap — keep the most-recently scanned items
         if (count($results['items']) > $config['max_session_items']) {
-            $excess = count($results['items']) - $config['max_session_items'];
-            $results['items'] = array_slice($results['items'], $excess, null, true);
+            $results['items'] = array_slice($results['items'], -$config['max_session_items'], null, true);
         }
         leAuditSessionSet($config['session_key'], $results);
     } elseif ($results['status'] === 'running') {
