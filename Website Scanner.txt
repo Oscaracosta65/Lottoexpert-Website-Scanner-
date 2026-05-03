@@ -661,40 +661,40 @@ function leAuditCheckUrl(string $url, array $config, array $options = []): array
         if ($title === '') {
             $issues[] = 'Missing title tag';
         } elseif ($titleLen < 50) {
-            $warnings[] = 'Page title is too short (' . $titleLen . ' chars) — Google recommends 50-70 characters. A very short title gives search engines almost no information about the page topic. Expand your title to clearly describe the page content.';
+            $warnings[] = 'Page title is too short (' . $titleLen . ' chars) - Google recommends 50-70 characters. A very short title gives search engines almost no information about the page topic. Expand your title to clearly describe the page content.';
         } elseif ($titleLen > 70) {
-            $warnings[] = 'Page title is too long (' . $titleLen . ' chars) — Google typically truncates titles longer than 70 characters in search results, cutting off part of your message. Edit the title to 50-70 characters.';
+            $warnings[] = 'Page title is too long (' . $titleLen . ' chars) - Google typically truncates titles longer than 70 characters in search results, cutting off part of your message. Edit the title to 50-70 characters.';
         }
 
         if ($description === '') {
             $issues[] = 'Missing meta description';
         } elseif ($descLen < 50) {
-            $warnings[] = 'Meta description is too short (' . $descLen . ' chars) — Search engines use this text as the snippet shown under your page title in results. A snippet under 50 characters is too brief to attract clicks. Write a 50-165 character description that summarises the page and encourages users to click.';
+            $warnings[] = 'Meta description is too short (' . $descLen . ' chars) - Search engines use this text as the snippet shown under your page title in results. A snippet under 50 characters is too brief to attract clicks. Write a 50-165 character description that summarises the page and encourages users to click.';
         } elseif ($descLen > 165) {
-            $warnings[] = 'Meta description is too long (' . $descLen . ' chars) — Google will cut off descriptions longer than ~165 characters, leaving an incomplete sentence in search results. Trim your description to under 165 characters.';
+            $warnings[] = 'Meta description is too long (' . $descLen . ' chars) - Google will cut off descriptions longer than ~165 characters, leaving an incomplete sentence in search results. Trim your description to under 165 characters.';
         }
 
         if ($canonical === '') {
-            $warnings[] = 'Missing canonical tag — A canonical tag tells search engines which version of this URL is the official one, preventing duplicate-content penalties when the same page is reachable via multiple URLs. Add a self-referencing canonical tag to the head of this page.';
+            $warnings[] = 'Missing canonical tag - A canonical tag tells search engines which version of this URL is the official one, preventing duplicate-content penalties when the same page is reachable via multiple URLs. Add a self-referencing canonical tag to the head of this page.';
         }
 
         if ($h1Count === 0) {
             $issues[] = 'Missing H1 tag';
         } elseif ($h1Count > 1) {
-            $warnings[] = 'Multiple H1 headings found (' . $h1Count . ') — Each page should have exactly one H1 tag that clearly states the main topic. Having several H1s confuses search engines about the primary subject. Keep one H1 and use H2/H3 for sub-headings.';
+            $warnings[] = 'Multiple H1 headings found (' . $h1Count . ') - Each page should have exactly one H1 tag that clearly states the main topic. Having several H1s confuses search engines about the primary subject. Keep one H1 and use H2/H3 for sub-headings.';
         }
 
         if ($noindex) {
-            $warnings[] = 'Page has a noindex directive — This page is actively instructing search engines NOT to index it. If this is unintentional, remove the noindex directive so the page can appear in search results.';
+            $warnings[] = 'Page has a noindex directive - This page is actively instructing search engines NOT to index it. If this is unintentional, remove the noindex directive so the page can appear in search results.';
         }
     }
 
     if ($checkAltText && $imgsNoAlt > 0 && $fetch['status'] >= 200 && $fetch['status'] < 300) {
-        $warnings[] = $imgsNoAlt . ' image(s) are missing alt text — The alt attribute on an img tag describes the image to search engines and screen-reader users. Missing alt text harms SEO and accessibility. Add a short, descriptive alt attribute to every image on this page.';
+        $warnings[] = $imgsNoAlt . ' image(s) are missing alt text - The alt attribute on an img tag describes the image to search engines and screen-reader users. Missing alt text harms SEO and accessibility. Add a short, descriptive alt attribute to every image on this page.';
     }
 
     if ($checkSpeed && $fetch['load_time_ms'] > 3000 && $fetch['status'] >= 200 && $fetch['status'] < 300) {
-        $warnings[] = 'Slow page load time (' . $fetch['load_time_ms'] . ' ms) — Google uses page speed as a ranking factor; pages taking over 3 seconds to load are penalised and have higher visitor bounce rates. Investigate large images, render-blocking scripts, or slow server response times.';
+        $warnings[] = 'Slow page load time (' . $fetch['load_time_ms'] . ' ms) - Google uses page speed as a ranking factor; pages taking over 3 seconds to load are penalised and have higher visitor bounce rates. Investigate large images, render-blocking scripts, or slow server response times.';
     }
 
     // ── Performance diagnostics ──────────────────────────────────────────────
@@ -916,12 +916,12 @@ function leAuditLoadSitemapUrls(array $config): array
         }
 
         if ($isSitemapIndex) {
-            $diagnostics[] = 'INDEX ' . $currentSitemap . ' → queued ' . $subSitemaps . ' sub-sitemaps';
+            $diagnostics[] = 'INDEX ' . $currentSitemap . ' -> queued ' . $subSitemaps . ' sub-sitemaps';
         } elseif ($subSitemaps > 0) {
-            $diagnostics[] = 'MIXED ' . $currentSitemap . ' → ' . count($foundUnique) . ' page URLs + queued ' . $subSitemaps . ' sub-sitemaps';
+            $diagnostics[] = 'MIXED ' . $currentSitemap . ' -> ' . count($foundUnique) . ' page URLs + queued ' . $subSitemaps . ' sub-sitemaps';
         } else {
             $foundUrls     = count($matches[1]);
-            $diagnostics[] = 'OK ' . $currentSitemap . ' → ' . count($foundUnique) . ' unique page URLs (' . $foundUrls . ' raw)';
+            $diagnostics[] = 'OK ' . $currentSitemap . ' -> ' . count($foundUnique) . ' unique page URLs (' . $foundUrls . ' raw)';
         }
     }
 
@@ -1599,11 +1599,11 @@ if ($action !== '' && !Session::checkToken('post')) {
     $message = 'Scan options saved.';
 
     if ($action === 'save_options_ajax') {
+        while (ob_get_level() > 0) { ob_end_clean(); }
         if (!headers_sent()) {
             header('Content-Type: application/json; charset=utf-8');
             header('Cache-Control: no-store, no-cache, must-revalidate');
         }
-        while (ob_get_level() > 0) { ob_end_clean(); }
         echo json_encode([
             'ok'      => true,
             'message' => 'Saved',
@@ -1889,11 +1889,11 @@ if ($action !== '' && !Session::checkToken('post')) {
         $etaSeconds      = ($secondsPerPage > 0 && $ajaxPendingCount > 0) ? $secondsPerPage * $ajaxPendingCount : 0;
         $etaLabel        = $ajaxPendingCount > 0 ? leAuditFormatEta($etaSeconds) : 'complete';
 
+        while (ob_get_level() > 0) { ob_end_clean(); }
         if (!headers_sent()) {
             header('Content-Type: application/json; charset=utf-8');
             header('Cache-Control: no-store, no-cache, must-revalidate');
         }
-        while (ob_get_level() > 0) { ob_end_clean(); }
         echo json_encode([
             'ok'                => true,
             'pending'           => $ajaxPendingCount,
@@ -2705,20 +2705,20 @@ $token   = Session::getFormToken();
                             <?php
                                 $statusCode = (int) $bl['status'];
                                 $statusLabel = match(true) {
-                                    $statusCode === 0   => '0 – Connection Failed',
-                                    $statusCode === 400 => '400 – Bad Request',
-                                    $statusCode === 401 => '401 – Unauthorised',
-                                    $statusCode === 403 => '403 – Forbidden',
-                                    $statusCode === 404 => '404 – Not Found',
-                                    $statusCode === 405 => '405 – Method Not Allowed',
-                                    $statusCode === 410 => '410 – Gone (Deleted)',
-                                    $statusCode === 429 => '429 – Too Many Requests',
-                                    $statusCode === 500 => '500 – Server Error',
-                                    $statusCode === 502 => '502 – Bad Gateway',
-                                    $statusCode === 503 => '503 – Service Unavailable',
-                                    $statusCode === 504 => '504 – Gateway Timeout',
-                                    $statusCode >= 400 && $statusCode < 500 => $statusCode . ' – Client Error',
-                                    $statusCode >= 500 => $statusCode . ' – Server Error',
+                                    $statusCode === 0   => '0 - Connection Failed',
+                                    $statusCode === 400 => '400 - Bad Request',
+                                    $statusCode === 401 => '401 - Unauthorised',
+                                    $statusCode === 403 => '403 - Forbidden',
+                                    $statusCode === 404 => '404 - Not Found',
+                                    $statusCode === 405 => '405 - Method Not Allowed',
+                                    $statusCode === 410 => '410 - Gone (Deleted)',
+                                    $statusCode === 429 => '429 - Too Many Requests',
+                                    $statusCode === 500 => '500 - Server Error',
+                                    $statusCode === 502 => '502 - Bad Gateway',
+                                    $statusCode === 503 => '503 - Service Unavailable',
+                                    $statusCode === 504 => '504 - Gateway Timeout',
+                                    $statusCode >= 400 && $statusCode < 500 => $statusCode . ' - Client Error',
+                                    $statusCode >= 500 => $statusCode . ' - Server Error',
                                     default             => (string) $statusCode,
                                 };
                                 $foundAt = '';
