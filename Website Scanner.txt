@@ -1087,7 +1087,7 @@ function leAuditExportCsv(array $results): void
     }
 
     $filename = 'lottoexpert-full-site-audit-' . gmdate('Ymd-His') . '.csv';
-    $headers = [
+    $csvHeaders = [
         'Record Type', 'URL', 'Status', 'Load Time MS', 'Title', 'Title Length',
         'Meta Description', 'Meta Description Length', 'Canonical',
         'H1 Count', 'H1 Text', 'Noindex', 'Images Without Alt',
@@ -1096,15 +1096,17 @@ function leAuditExportCsv(array $results): void
         'Link Text Or Image Alt', 'Raw Href Or Src', 'Page Text Near Link', 'HTML Snippet', 'Detected At',
     ];
 
-    header('Content-Type: text/csv; charset=UTF-8');
-    header('Content-Disposition: attachment; filename="' . $filename . '"');
-    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
-    header('Pragma: no-cache');
-    header('Expires: 0');
+    if (!headers_sent()) {
+        header('Content-Type: text/csv; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+    }
 
     $fp = fopen('php://output', 'w');
     fwrite($fp, "\xEF\xBB\xBF");
-    fputcsv($fp, $headers);
+    fputcsv($fp, $csvHeaders);
 
     if (!empty($results['items'])) {
         foreach ($results['items'] as $item) {
