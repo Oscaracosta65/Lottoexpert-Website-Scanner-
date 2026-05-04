@@ -1016,12 +1016,6 @@ class LeauditController extends BaseController
         $app   = Factory::getApplication();
         $input = $app->input;
 
-        // ── Access guard ─────────────────────────────────────────────────────
-        $user = $app->getIdentity();
-        if (!$user || !$user->id || !$user->authorise('core.login.site')) {
-            throw new \RuntimeException('Access Denied', 403);
-        }
-
         $config = $this->getConfig();
 
         // ── State ─────────────────────────────────────────────────────────────
